@@ -12,6 +12,7 @@ class ProviderType(str, Enum):
     dermatology = "dermatology"
     orthopedics = "orthopedics"
     cardiology = "cardiology"
+    neurology = "neurology"
 
 
 class VisitMode(str, Enum):
