@@ -34,6 +34,7 @@ class Provider(SQLModel, table=True):
     provider_type: ProviderType
     location_id: str = Field(foreign_key="location.id")
     accepts_virtual: bool = True
+    headshot_url: Optional[str] = None
 
 
 class Appointment(SQLModel, table=True):
