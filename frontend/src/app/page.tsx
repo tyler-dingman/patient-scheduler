@@ -288,7 +288,7 @@ export default function Page() {
 
     try {
       const resp = await getJSON<ProvidersResponse>(
-        `/api/providers?provider_type=primary_care&limit=5&mode=${mode}`
+        `/api/providers?provider_type=primary_care&limit=3&mode=${mode}`
       );
 
       setProviderMatches(resp.providers);
@@ -683,7 +683,7 @@ export default function Page() {
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                {providerMatches.map((p) => {
+                {providerMatches.slice(0, 3).map((p) => {
                   const providerSlots =
                     availability?.filter((slot) => slot.provider_id === p.provider_id) ?? [];
 
