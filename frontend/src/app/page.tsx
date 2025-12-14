@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 type Role = "user" | "assistant" | "system";
 
@@ -29,8 +29,6 @@ type CareOption = {
   label: string;
   suggested: boolean;
 };
-
-type CareOptionsResponse = { options: CareOption[] };
 
 type ProviderSummary = {
   provider_id: string;
@@ -109,6 +107,8 @@ export default function Page() {
     "idle" | "locating" | "granted" | "denied"
   >("idle");
   const [userLocation, setUserLocation] = useState<string | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
 
   function getErrorMessage(error: unknown) {
     if (error instanceof Error) return error.message;
@@ -357,6 +357,18 @@ export default function Page() {
       ? "Location not shared"
       : "Auto-location ready";
 
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: "smooth",
+    });
+
+    scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
   return (
     <main className="relative min-h-screen bg-[#f58220] px-4 py-6 text-slate-900 lg:py-10">
 
@@ -413,8 +425,36 @@ export default function Page() {
             </div>
           )}
 
+          <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-[#f58220]/25 bg-white/90 p-4 shadow-inner">
+            <div
+              className="flex-1 space-y-3 overflow-auto pr-1"
+              ref={messagesContainerRef}
+            >
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow transition ${
+                      m.role === "user"
+                        ? "rounded-br-sm bg-[#f58220] text-white"
+                        : m.role === "system"
+                        ? "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
+                        : "bg-white text-slate-800 ring-1 ring-[#f58220]/20"
+                    }`}
+                  >
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {loading && <div className="text-sm text-slate-500">Thinking…</div>}
+              <div ref={scrollAnchorRef} />
+            </div>
+          </div>
+
           {providerMatches && providerMatches.length > 0 && (
-            <div className="mt-3 space-y-3 rounded-3xl border border-[#f58220]/25 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15">
+            <div className="space-y-3 rounded-3xl border border-[#f58220]/25 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
@@ -475,30 +515,6 @@ export default function Page() {
               </div>
             </div>
           )}
-
-          <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-[#f58220]/25 bg-white/90 p-4 shadow-inner">
-            <div className="flex-1 space-y-3 overflow-auto pr-1">
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow transition ${
-                      m.role === "user"
-                        ? "rounded-br-sm bg-[#f58220] text-white"
-                        : m.role === "system"
-                        ? "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
-                        : "bg-white text-slate-800 ring-1 ring-[#f58220]/20"
-                    }`}
-                  >
-                    {m.text}
-                  </div>
-                </div>
-              ))}
-              {loading && <div className="text-sm text-slate-500">Thinking…</div>}
-            </div>
-          </div>
         </div>
 
         <div className="flex flex-col gap-4 bg-white/95 px-5 py-5 lg:overflow-y-auto lg:px-6 lg:py-7">
