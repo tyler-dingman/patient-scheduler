@@ -64,7 +64,6 @@ type ProviderSummary = {
   name: string;
   provider_type: CareOption["provider_type"];
   accepts_virtual: boolean;
-  headshot_url?: string;
   location_name: string;
   location_city: string;
   location_state: string;
@@ -77,12 +76,7 @@ type ProvidersResponse = { providers: ProviderSummary[] };
 type Msg = { role: Role; text: string };
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ||
-  // Use relative requests in production to avoid mixed-content issues over HTTPS
-  (typeof window !== "undefined" &&
-    !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
-    ? ""
-    : "http://127.0.0.1:8000");
+  process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
 function todayISO() {
   const d = new Date();
@@ -90,6 +84,16 @@ function todayISO() {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function providerInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 }
 
 function formatSpecialty(type: CareOption["provider_type"]) {
@@ -688,43 +692,37 @@ export default function Page() {
                       key={p.provider_id}
                       className="group relative overflow-hidden rounded-2xl border border-[#f58220]/15 bg-gradient-to-br from-white via-white to-[#f58220]/5 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="relative h-12 w-12 overflow-hidden rounded-full ring-2 ring-white shadow-inner">
-                          <Image
-                            src={p.headshot_url ?? "/headshots/default.svg"}
-                            alt={`Headshot of ${p.name}`}
-                            fill
-                            className="object-cover"
-                            sizes="48px"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-slate-900">{p.name}</div>
-                          <div className="text-xs text-slate-600">
-                            {formatSpecialty(p.provider_type)} • {p.location_city}, {p.location_state}
-                          </div>
-                          <div className="text-[11px] uppercase tracking-wide text-[#f58220]">{p.location_name}</div>
-                        </div>
-                        <div className="text-right text-xs text-slate-600">
-                          {p.next_available_start ? (
-                            <div className="space-y-1 text-right">
-                              <div className="text-[11px] font-semibold uppercase text-[#f58220]">Next</div>
-                              <div className="text-sm font-semibold text-slate-900">
-                                {new Date(p.next_available_start).toLocaleString(undefined, {
-                                  weekday: "short",
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </div>
-                              <div className="text-[11px] text-slate-500">
-                                {p.next_available_mode === "virtual" ? "Virtual" : "In person"}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-[11px] text-slate-500">No openings in the next two weeks</div>
-                          )}
-                        </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#f58220] to-amber-400 text-sm font-semibold text-white shadow-inner">
+                        {providerInitials(p.name)}
                       </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-slate-900">{p.name}</div>
+                        <div className="text-xs text-slate-600">
+                          {formatSpecialty(p.provider_type)} • {p.location_city}, {p.location_state}
+                        </div>
+                        <div className="text-[11px] uppercase tracking-wide text-[#f58220]">{p.location_name}</div>
+                      </div>
+                      <div className="text-right text-xs text-slate-600">
+                        {p.next_available_start ? (
+                          <div className="space-y-1 text-right">
+                            <div className="text-[11px] font-semibold uppercase text-[#f58220]">Next</div>
+                            <div className="text-sm font-semibold text-slate-900">
+                              {new Date(p.next_available_start).toLocaleString(undefined, {
+                                weekday: "short",
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {p.next_available_mode === "virtual" ? "Virtual" : "In person"}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-slate-500">No openings in the next two weeks</div>
+                        )}
+                      </div>
+                    </div>
 
                     <div className="mt-3 space-y-2">
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
