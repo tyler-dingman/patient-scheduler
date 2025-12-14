@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 type Role = "user" | "assistant" | "system";
 
@@ -32,33 +32,6 @@ type CareOption = {
 
 type CareOptionsResponse = { options: CareOption[] };
 
-type AvailabilitySlot = {
-  provider_id: string;
-  provider_name: string;
-  location_id: string;
-  location_name: string;
-  start: string;
-  end: string;
-  mode: "in_person" | "virtual";
-};
-
-type AvailabilityResponse = { slots: AvailabilitySlot[] };
-
-type CreateHoldResponse = {
-  hold_id: string;
-  expires_at: string;
-};
-
-type BookAppointmentResponse = {
-  appointment_id: string;
-  provider_name: string;
-  location_name: string;
-  start: string;
-  end: string;
-  mode: "in_person" | "virtual";
-  status: "confirmed";
-};
-
 type ProviderSummary = {
   provider_id: string;
   name: string;
@@ -77,14 +50,6 @@ type Msg = { role: Role; text: string };
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
-
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 function providerInitials(name: string) {
   return name
@@ -120,34 +85,7 @@ export default function Page() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [intent, setIntent] = useState<SearchIntentResponse | null>(
-    null
-  );
-  const [careOptions, setCareOptions] =
-    useState<CareOption[] | null>(null);
-
-  const [selectedCareType, setSelectedCareType] =
-    useState<CareOption["provider_type"] | null>(null);
-  const [mode, setMode] = useState<"in_person" | "virtual">(
-    "in_person"
-  );
-  const [availability, setAvailability] =
-    useState<AvailabilitySlot[] | null>(null);
-  const [selectedSlot, setSelectedSlot] =
-    useState<AvailabilitySlot | null>(null);
-  const [selectedAppointmentPreview, setSelectedAppointmentPreview] =
-    useState<AvailabilitySlot | null>(null);
-  const [holdId, setHoldId] = useState<string | null>(null);
-  const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
-
-  const [patientFirstName, setPatientFirstName] = useState("Alex");
-  const [patientLastName, setPatientLastName] = useState("Rivera");
-  const [patientDob, setPatientDob] = useState("1990-01-15");
-  const [patientPhone, setPatientPhone] = useState("3125550101");
-  const [patientEmail, setPatientEmail] = useState("alex@example.com");
-  const [patientNotes, setPatientNotes] = useState("");
-
-  const [bookingStatus, setBookingStatus] = useState<string | null>(null);
+  const [mode] = useState<"in_person" | "virtual">("in_person");
 
   const [providerMatches, setProviderMatches] = useState<ProviderSummary[] | null>(
     null
@@ -292,33 +230,11 @@ export default function Page() {
       );
 
       setProviderMatches(resp.providers);
-      setSelectedCareType("primary_care");
-      setIntent({
-        escalate: false,
-        not_medical_advice:
-          "This tool provides scheduling assistance only and is not medical advice.",
-        visit_reason_code: "PRIMARY_CARE_VISIT",
-        visit_reason_label: "a primary care visit",
-        recommended_provider_type: "primary_care",
-        confidence: "high",
-      });
-      setCareOptions([
-        {
-          provider_type: "primary_care",
-          label: "Primary care (AI matched)",
-          suggested: true,
-        },
-        {
-          provider_type: "urgent_care",
-          label: "Urgent care (just in case)",
-          suggested: false,
-        },
-      ]);
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
-          text: "Here are primary care providers surfaced from our directory with live availability.",
+          text: "Here are primary care providers surfaced from our directory.",
         },
       ]);
     } catch (e: unknown) {
@@ -331,37 +247,6 @@ export default function Page() {
       setProviderDiscoveryMode("idle");
     }
   }
-
-  const loadAvailability = useCallback(async () => {
-    if (!selectedCareType || !intent?.visit_reason_code) return;
-
-    setSelectedSlot(null);
-    setHoldId(null);
-    setHoldExpiresAt(null);
-    setBookingStatus(null);
-    setSelectedAppointmentPreview(null);
-    setLoading(true);
-    try {
-      const resp = await getJSON<AvailabilityResponse>(
-        `/api/availability?provider_type=${selectedCareType}&start_date=${todayISO()}&days=7&mode=${mode}&visit_reason_code=${intent.visit_reason_code}`
-      );
-      setAvailability(resp.slots);
-    } catch (e: unknown) {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", text: getErrorMessage(e) },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [intent?.visit_reason_code, mode, selectedCareType]);
-
-  useEffect(() => {
-    if (!providerMatches || providerMatches.length === 0) return;
-    if (!selectedCareType || !intent?.visit_reason_code) return;
-
-    loadAvailability();
-  }, [intent?.visit_reason_code, loadAvailability, mode, providerMatches, selectedCareType]);
 
   function answerSymptomQuestion(option: string) {
     const current = symptomQuestions[symptomStep];
@@ -394,14 +279,6 @@ export default function Page() {
     if (!customText) {
       setInput("");
     }
-    setAvailability(null);
-    setSelectedSlot(null);
-    setHoldId(null);
-    setHoldExpiresAt(null);
-    setCareOptions(null);
-    setSelectedCareType(null);
-    setIntent(null);
-    setBookingStatus(null);
     resetFlows();
 
     setMessages((m) => [...m, { role: "user", text }]);
@@ -428,27 +305,6 @@ export default function Page() {
     if (isSymptomQuery(text)) {
       setLoading(false);
       setSymptomFlowActive(true);
-      setIntent({
-        escalate: false,
-        not_medical_advice: "This is not medical advice.",
-        visit_reason_code: "SORE_THROAT",
-        visit_reason_label: "sore throat",
-        recommended_provider_type: "urgent_care",
-        confidence: "high",
-      });
-      setCareOptions([
-        {
-          provider_type: "urgent_care",
-          label: "Urgent care (nearby clinics)",
-          suggested: true,
-        },
-        {
-          provider_type: "primary_care",
-          label: "Primary care follow-up",
-          suggested: false,
-        },
-      ]);
-      setSelectedCareType("urgent_care");
       setMessages((m) => [
         ...m,
         {
@@ -460,52 +316,11 @@ export default function Page() {
     }
 
     try {
-      const intentResp = await postJSON<SearchIntentResponse>(
-        "/api/search-intent",
-        {
-          session_id: sessionId,
-          message: text,
-          mode_preference: mode,
-        }
-      );
-
-      setIntent(intentResp);
-
-      if (intentResp.escalate) {
-        setMessages((m) => [
-          ...m,
-          {
-            role: "assistant",
-            text:
-              intentResp.safety_message ??
-              "This may require immediate care.",
-          },
-        ]);
-        return;
-      }
-
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text: `I can help schedule care for ${intentResp.visit_reason_label}.`,
-        },
-      ]);
-
-      const opts = await getJSON<CareOptionsResponse>(
-        `/api/care-options?visit_reason_code=${encodeURIComponent(
-          intentResp.visit_reason_code ?? "GENERIC"
-        )}&recommended_provider_type=${encodeURIComponent(
-          intentResp.recommended_provider_type ?? "primary_care"
-        )}`
-      );
-
-      setCareOptions(opts.options);
-      const suggested =
-        opts.options.find((o) => o.suggested)?.provider_type ??
-        opts.options[0]?.provider_type ??
-        null;
-      setSelectedCareType(suggested);
+      await postJSON<SearchIntentResponse>("/api/search-intent", {
+        session_id: sessionId,
+        message: text,
+        mode_preference: mode,
+      });
     } catch (e: unknown) {
       setMessages((m) => [
         ...m,
@@ -524,76 +339,6 @@ export default function Page() {
         text: "Voice chat is getting ready.",
       },
     ]);
-  }
-
-  async function holdSlot(slot: AvailabilitySlot) {
-    if (!intent?.visit_reason_code) return;
-
-    setLoading(true);
-    setBookingStatus(null);
-
-    try {
-      const resp = await postJSON<CreateHoldResponse>("/api/holds", {
-        session_id: sessionId,
-        provider_id: slot.provider_id,
-        start: slot.start,
-        mode: slot.mode,
-        visit_reason_code: intent.visit_reason_code,
-      });
-
-      setSelectedSlot(slot);
-      setHoldId(resp.hold_id);
-      setHoldExpiresAt(resp.expires_at);
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text: `Holding ${new Date(slot.start).toLocaleString()} with ${slot.provider_name}.`,
-        },
-      ]);
-    } catch (e: unknown) {
-      setBookingStatus(`Hold failed: ${getErrorMessage(e)}`);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function bookAppointment() {
-    if (!holdId || !selectedSlot) return;
-
-    setLoading(true);
-    setBookingStatus(null);
-
-    try {
-      const resp = await postJSON<BookAppointmentResponse>(
-        "/api/appointments",
-        {
-          session_id: sessionId,
-          hold_id: holdId,
-          patient_first_name: patientFirstName,
-          patient_last_name: patientLastName,
-          patient_dob: patientDob,
-          patient_phone: patientPhone,
-          patient_email: patientEmail,
-          notes: patientNotes || undefined,
-        }
-      );
-
-      setBookingStatus(
-        `Booked with ${resp.provider_name} on ${new Date(resp.start).toLocaleString()}.`
-      );
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text: `Booked ${resp.status} with ${resp.provider_name} (${resp.mode}). Confirmation: ${resp.appointment_id}.`,
-        },
-      ]);
-    } catch (e: unknown) {
-      setBookingStatus(`Booking failed: ${getErrorMessage(e)}`);
-    } finally {
-      setLoading(false);
-    }
   }
 
   const filteredInsurancePlans = insurancePlans.filter((plan) =>
@@ -675,7 +420,7 @@ export default function Page() {
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
                     Primary care near you
                   </div>
-                  <div className="text-sm text-slate-600">AI-ranked providers with live availability.</div>
+                  <div className="text-sm text-slate-600">AI-ranked providers recommended for your needs.</div>
                 </div>
                 <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
                   Live
@@ -684,9 +429,6 @@ export default function Page() {
 
               <div className="grid gap-3 md:grid-cols-2">
                 {providerMatches.slice(0, 3).map((p) => {
-                  const providerSlots =
-                    availability?.filter((slot) => slot.provider_id === p.provider_id) ?? [];
-
                   return (
                     <div
                       key={p.provider_id}
@@ -724,92 +466,12 @@ export default function Page() {
                       </div>
                     </div>
 
-                    <div className="mt-3 space-y-2">
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
-                        Appointments
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {providerSlots.slice(0, 3).map((slot) => (
-                          <button
-                            key={`${slot.provider_id}-${slot.start}`}
-                            className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-800 ring-1 ring-[#f58220]/30 transition hover:-translate-y-0.5 hover:bg-[#f58220]/10 disabled:opacity-50"
-                            onClick={() => setSelectedAppointmentPreview(slot)}
-                            disabled={loading}
-                          >
-                            {new Date(slot.start).toLocaleTimeString([], {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                          </button>
-                        ))}
-                        {providerSlots.length === 0 && (
-                          <span className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-500 ring-1 ring-[#f58220]/20">
-                            Checking live times…
-                          </span>
-                        )}
-                      </div>
-                      {p.accepts_virtual && (
-                        <div className="text-[11px] text-slate-500">Offers virtual visits</div>
-                      )}
-                    </div>
+                    {p.accepts_virtual && (
+                      <div className="mt-2 text-[11px] text-slate-500">Offers virtual visits</div>
+                    )}
                   </div>
                   );
                 })}
-              </div>
-            </div>
-          )}
-
-          {selectedAppointmentPreview && (
-            <div className="mt-3 space-y-3 rounded-3xl border border-[#f58220]/25 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
-                    Appointment overview
-                  </div>
-                  <div className="text-sm text-slate-700">
-                    {selectedAppointmentPreview.provider_name} at {selectedAppointmentPreview.location_name}
-                  </div>
-                </div>
-                <button
-                  className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-500 ring-1 ring-[#f58220]/20 transition hover:bg-[#f58220]/10"
-                  onClick={() => setSelectedAppointmentPreview(null)}
-                >
-                  Clear
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-3 text-sm text-slate-700">
-                <span className="rounded-full bg-[#f58220]/10 px-3 py-1 font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
-                  {new Date(selectedAppointmentPreview.start).toLocaleString([], {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </span>
-                <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#f58220]/20">
-                  {selectedAppointmentPreview.mode === "virtual" ? "Virtual" : "In person"}
-                </span>
-                <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#f58220]/20">
-                  {selectedAppointmentPreview.location_name}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  className="rounded-full bg-gradient-to-r from-[#f58220] to-amber-400 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
-                  onClick={() => holdSlot(selectedAppointmentPreview)}
-                  disabled={loading}
-                >
-                  Confirm & hold time
-                </button>
-                <button
-                  className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#f58220] ring-1 ring-[#f58220]/25 transition hover:-translate-y-0.5 hover:bg-[#f58220]/10"
-                  onClick={() => setSelectedAppointmentPreview(null)}
-                >
-                  Choose another time
-                </button>
               </div>
             </div>
           )}
@@ -962,202 +624,9 @@ export default function Page() {
                     ))}
                   </ul>
                   <div className="text-sm text-[#f58220]">
-                    I’ll look for urgent care times {userLocation ? `near ${userLocation}` : "near you"}.
+                    I’ll remember these details as I look for urgent care options {userLocation ? `near ${userLocation}` : "near you"}.
                   </div>
-                  <button
-                    className="w-full rounded-xl bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow transition hover:shadow-md disabled:opacity-60"
-                    onClick={loadAvailability}
-                    disabled={loading}
-                  >
-                    Find urgent care availability
-                  </button>
                 </div>
-              )}
-            </div>
-          )}
-
-          {careOptions && (
-            <div className="space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">Recommended care type</div>
-                  <div className="text-sm text-slate-600">Choose how you want to be seen.</div>
-                </div>
-                <button
-                  className="rounded-full border border-[#f58220]/30 bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] shadow-sm transition hover:-translate-y-0.5 disabled:opacity-60"
-                  onClick={loadAvailability}
-                  disabled={loading}
-                >
-                  Load availability
-                </button>
-              </div>
-
-              <div className="space-y-2 text-sm">
-                {careOptions.map((o) => (
-                  <label
-                    key={o.provider_type}
-                    className="flex items-center justify-between rounded-xl border border-[#f58220]/25 bg-[#f58220]/10 px-3 py-2 shadow-sm"
-                  >
-                    <div>
-                      <div className="font-medium text-slate-900">{o.label}</div>
-                      {o.suggested && (
-                        <div className="text-[11px] font-semibold uppercase text-[#f58220]">Suggested match</div>
-                      )}
-                    </div>
-                    <input
-                      type="radio"
-                      className="h-4 w-4 accent-[#f58220]"
-                      checked={selectedCareType === o.provider_type}
-                      onChange={() => setSelectedCareType(o.provider_type)}
-                    />
-                  </label>
-                ))}
-              </div>
-
-              <div className="rounded-xl border border-[#f58220]/25 bg-[#f58220]/10 p-3 text-sm text-[#f58220]">
-                <div className="text-xs font-semibold uppercase tracking-wide">Visit mode</div>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm ring-1 ring-[#f58220]/25">
-                    <input
-                      type="radio"
-                      className="h-4 w-4 accent-[#f58220]"
-                      checked={mode === "in_person"}
-                      onChange={() => setMode("in_person")}
-                    />
-                    In person
-                  </label>
-                  <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm ring-1 ring-[#f58220]/25">
-                    <input
-                      type="radio"
-                      className="h-4 w-4 accent-[#f58220]"
-                      checked={mode === "virtual"}
-                      onChange={() => setMode("virtual")}
-                    />
-                    Virtual
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {availability && (
-            <div className="space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm">
-              <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">Available times</div>
-              {availability.length === 0 && (
-                <p className="text-sm text-slate-600">No slots available for that care type.</p>
-              )}
-
-              {availability.slice(0, 20).map((s, i) => {
-                const isSelected =
-                  selectedSlot?.start === s.start &&
-                  selectedSlot?.provider_id === s.provider_id;
-                return (
-                  <div
-                    key={i}
-                    className={`rounded-2xl border p-3 text-sm shadow-sm transition ${
-                      isSelected
-                        ? "border-[#f58220]/50 bg-[#f58220]/10"
-                        : "border-[#f58220]/25 bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="font-semibold text-slate-900">
-                          {new Date(s.start).toLocaleString()} ({s.mode.replace("_", " ")})
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          {s.provider_name} • {s.location_name}
-                        </div>
-                      </div>
-                      <button
-                        className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/30 transition hover:bg-[#f58220]/10 disabled:opacity-50"
-                        onClick={() => holdSlot(s)}
-                        disabled={loading}
-                      >
-                        {isSelected ? "Held" : "Hold this time"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {holdId && selectedSlot && (
-            <div className="space-y-3 rounded-2xl border border-[#f58220]/30 bg-[#f58220]/10 p-4 text-sm shadow-inner">
-              <div className="font-semibold text-[#f58220]">
-                Holding {new Date(selectedSlot.start).toLocaleString()} with {selectedSlot.provider_name}
-              </div>
-              {holdExpiresAt && (
-                <div className="text-[#f58220]">
-                  Hold expires at {new Date(holdExpiresAt).toLocaleTimeString()}.
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                  First name
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
-                    value={patientFirstName}
-                    onChange={(e) => setPatientFirstName(e.target.value)}
-                  />
-                </label>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                  Last name
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
-                    value={patientLastName}
-                    onChange={(e) => setPatientLastName(e.target.value)}
-                  />
-                </label>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                  Date of birth
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
-                    type="date"
-                    value={patientDob}
-                    onChange={(e) => setPatientDob(e.target.value)}
-                  />
-                </label>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                  Phone
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
-                    value={patientPhone}
-                    onChange={(e) => setPatientPhone(e.target.value)}
-                  />
-                </label>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                  Email (optional)
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
-                    type="email"
-                    value={patientEmail}
-                    onChange={(e) => setPatientEmail(e.target.value)}
-                  />
-                </label>
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 md:col-span-2">
-                  Notes
-                  <textarea
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
-                    rows={2}
-                    value={patientNotes}
-                    onChange={(e) => setPatientNotes(e.target.value)}
-                  />
-                </label>
-              </div>
-
-              <button
-                className="w-full rounded-2xl bg-[#f58220] px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:opacity-50"
-                onClick={bookAppointment}
-                disabled={loading}
-              >
-                Book appointment
-              </button>
-
-              {bookingStatus && (
-                <div className="text-sm text-[#f58220]">{bookingStatus}</div>
               )}
             </div>
           )}
