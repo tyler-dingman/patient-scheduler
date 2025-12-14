@@ -378,7 +378,7 @@ export default function Page() {
               <div className="text-xl font-semibold leading-snug text-slate-900">
                 Optum Companion
               </div>
-              <div className="text-xs text-slate-600">
+              <div className="text-lg text-slate-600">
                 Hi, I’m here to help you find care.
               </div>
             </div>
