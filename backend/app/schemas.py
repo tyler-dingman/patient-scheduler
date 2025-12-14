@@ -41,7 +41,6 @@ class ProviderSummary(BaseModel):
     name: str
     provider_type: ProviderType
     accepts_virtual: bool
-    headshot_url: Optional[str] = None
     location_name: str
     location_city: str
     location_state: str
