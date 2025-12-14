@@ -319,19 +319,18 @@ export default function Page() {
   }
 
   return (
-    <main className="relative min-h-screen bg-gradient-to-b from-white via-white to-[#f58220]/60 px-4 py-6 text-slate-900 lg:py-10">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#f58220]/30 via-white to-white" />
+    <main className="relative min-h-screen bg-[#f58220] px-4 py-6 text-slate-900 lg:py-10">
 
-      <section className="relative mx-auto flex max-h-[92vh] max-w-6xl flex-col overflow-hidden rounded-[32px] border border-orange-100/80 bg-white/95 shadow-2xl ring-1 ring-orange-100/60 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:max-h-[90vh]">
-        <div className="relative flex flex-col bg-gradient-to-b from-white via-orange-50/40 to-white px-5 pb-5 pt-4 lg:p-7">
-          <div className="mb-5 flex items-center gap-3 rounded-2xl bg-orange-50/80 px-4 py-3 ring-1 ring-orange-100">
+      <section className="relative mx-auto flex max-h-[92vh] max-w-6xl flex-col overflow-hidden rounded-[32px] border border-[#f58220]/25 bg-white/95 shadow-2xl ring-1 ring-[#f58220]/25 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:max-h-[90vh]">
+        <div className="relative flex flex-col bg-gradient-to-b from-white via-[#f58220]/10 to-white px-5 pb-5 pt-4 lg:p-7">
+          <div className="mb-5 flex items-center gap-3 rounded-2xl bg-[#f58220]/10 px-4 py-3 ring-1 ring-[#f58220]/25">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f58220] text-base font-semibold text-white shadow-lg">OC</div>
             <div className="flex-1">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#f58220]">Optum Companion</div>
               <div className="text-lg font-semibold leading-tight text-slate-900">Let’s handle your care in one chat.</div>
               <div className="text-sm text-slate-600">Ask questions, book visits, and get matched to the right option.</div>
             </div>
-            <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-orange-100/80">Online</div>
+            <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/25">Online</div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
@@ -343,7 +342,7 @@ export default function Page() {
             {quickPrompts.map((prompt) => (
               <button
                 key={prompt}
-                className="rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-medium text-[#f58220] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+                className="rounded-full border border-[#f58220]/30 bg-[#f58220]/10 px-4 py-2 text-sm font-medium text-[#f58220] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
                 onClick={() => handleSend(prompt)}
                 disabled={loading}
               >
@@ -352,7 +351,7 @@ export default function Page() {
             ))}
           </div>
 
-          <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-orange-100 bg-white/90 p-4 shadow-inner">
+          <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-[#f58220]/25 bg-white/90 p-4 shadow-inner">
             <div className="flex-1 space-y-3 overflow-auto pr-1">
               {messages.map((m, i) => (
                 <div
@@ -364,8 +363,8 @@ export default function Page() {
                       m.role === "user"
                         ? "rounded-br-sm bg-[#f58220] text-white"
                         : m.role === "system"
-                        ? "bg-orange-50 text-orange-900 ring-1 ring-orange-100"
-                        : "bg-white text-slate-800 ring-1 ring-orange-100/80"
+                        ? "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
+                        : "bg-white text-slate-800 ring-1 ring-[#f58220]/20"
                     }`}
                   >
                     {m.text}
@@ -375,7 +374,7 @@ export default function Page() {
               {loading && <div className="text-sm text-slate-500">Thinking…</div>}
             </div>
 
-            <div className="mt-4 flex items-center gap-3 rounded-full bg-orange-50 px-3 py-2 shadow-sm ring-1 ring-orange-200">
+            <div className="mt-4 flex items-center gap-3 rounded-full bg-[#f58220]/10 px-3 py-2 shadow-sm ring-1 ring-[#f58220]/30">
               <input
                 className="flex-1 bg-transparent px-2 py-2 text-sm placeholder:text-slate-400 focus:outline-none"
                 placeholder="Tell me what’s happening or ask about next steps"
@@ -397,20 +396,20 @@ export default function Page() {
 
         <div className="flex flex-col gap-4 bg-white/95 px-5 py-5 lg:overflow-y-auto lg:px-6 lg:py-7">
           {!careOptions && (
-            <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4 text-sm text-orange-900 shadow-sm">
+            <div className="rounded-2xl border border-[#f58220]/25 bg-[#f58220]/10 p-4 text-sm text-[#f58220] shadow-sm">
               Tell me what’s going on, and I’ll suggest the best care options.
             </div>
           )}
 
           {careOptions && (
-            <div className="space-y-3 rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
+            <div className="space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">Recommended care type</div>
                   <div className="text-sm text-slate-600">Choose how you want to be seen.</div>
                 </div>
                 <button
-                  className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-[#f58220] shadow-sm transition hover:-translate-y-0.5 disabled:opacity-60"
+                  className="rounded-full border border-[#f58220]/30 bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] shadow-sm transition hover:-translate-y-0.5 disabled:opacity-60"
                   onClick={loadAvailability}
                   disabled={loading}
                 >
@@ -422,7 +421,7 @@ export default function Page() {
                 {careOptions.map((o) => (
                   <label
                     key={o.provider_type}
-                    className="flex items-center justify-between rounded-xl border border-orange-100 bg-orange-50/60 px-3 py-2 shadow-sm"
+                    className="flex items-center justify-between rounded-xl border border-[#f58220]/25 bg-[#f58220]/10 px-3 py-2 shadow-sm"
                   >
                     <div>
                       <div className="font-medium text-slate-900">{o.label}</div>
@@ -440,10 +439,10 @@ export default function Page() {
                 ))}
               </div>
 
-              <div className="rounded-xl border border-orange-100 bg-orange-50 p-3 text-sm text-orange-900">
+              <div className="rounded-xl border border-[#f58220]/25 bg-[#f58220]/10 p-3 text-sm text-[#f58220]">
                 <div className="text-xs font-semibold uppercase tracking-wide">Visit mode</div>
                 <div className="mt-2 flex flex-wrap gap-3">
-                  <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm ring-1 ring-orange-100">
+                  <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm ring-1 ring-[#f58220]/25">
                     <input
                       type="radio"
                       className="h-4 w-4 accent-[#f58220]"
@@ -452,7 +451,7 @@ export default function Page() {
                     />
                     In person
                   </label>
-                  <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm ring-1 ring-orange-100">
+                  <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm ring-1 ring-[#f58220]/25">
                     <input
                       type="radio"
                       className="h-4 w-4 accent-[#f58220]"
@@ -467,7 +466,7 @@ export default function Page() {
           )}
 
           {availability && (
-            <div className="space-y-3 rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
+            <div className="space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm">
               <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">Available times</div>
               {availability.length === 0 && (
                 <p className="text-sm text-slate-600">No slots available for that care type.</p>
@@ -482,8 +481,8 @@ export default function Page() {
                     key={i}
                     className={`rounded-2xl border p-3 text-sm shadow-sm transition ${
                       isSelected
-                        ? "border-orange-300 bg-orange-50"
-                        : "border-orange-100 bg-white"
+                        ? "border-[#f58220]/50 bg-[#f58220]/10"
+                        : "border-[#f58220]/25 bg-white"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -496,7 +495,7 @@ export default function Page() {
                         </div>
                       </div>
                       <button
-                        className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-orange-200 transition hover:bg-orange-50 disabled:opacity-50"
+                        className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/30 transition hover:bg-[#f58220]/10 disabled:opacity-50"
                         onClick={() => holdSlot(s)}
                         disabled={loading}
                       >
@@ -510,12 +509,12 @@ export default function Page() {
           )}
 
           {holdId && selectedSlot && (
-            <div className="space-y-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm shadow-inner">
+            <div className="space-y-3 rounded-2xl border border-[#f58220]/30 bg-[#f58220]/10 p-4 text-sm shadow-inner">
               <div className="font-semibold text-[#f58220]">
                 Holding {new Date(selectedSlot.start).toLocaleString()} with {selectedSlot.provider_name}
               </div>
               {holdExpiresAt && (
-                <div className="text-orange-900">
+                <div className="text-[#f58220]">
                   Hold expires at {new Date(holdExpiresAt).toLocaleTimeString()}.
                 </div>
               )}
@@ -524,7 +523,7 @@ export default function Page() {
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
                   First name
                   <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-orange-100 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
                     value={patientFirstName}
                     onChange={(e) => setPatientFirstName(e.target.value)}
                   />
@@ -532,7 +531,7 @@ export default function Page() {
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
                   Last name
                   <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-orange-100 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
                     value={patientLastName}
                     onChange={(e) => setPatientLastName(e.target.value)}
                   />
@@ -540,7 +539,7 @@ export default function Page() {
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
                   Date of birth
                   <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-orange-100 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
                     type="date"
                     value={patientDob}
                     onChange={(e) => setPatientDob(e.target.value)}
@@ -549,7 +548,7 @@ export default function Page() {
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
                   Phone
                   <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-orange-100 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
                     value={patientPhone}
                     onChange={(e) => setPatientPhone(e.target.value)}
                   />
@@ -557,7 +556,7 @@ export default function Page() {
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
                   Email (optional)
                   <input
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-orange-100 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
                     type="email"
                     value={patientEmail}
                     onChange={(e) => setPatientEmail(e.target.value)}
@@ -566,7 +565,7 @@ export default function Page() {
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 md:col-span-2">
                   Notes
                   <textarea
-                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-orange-100 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-[#f58220]/25 focus:outline-none"
                     rows={2}
                     value={patientNotes}
                     onChange={(e) => setPatientNotes(e.target.value)}
@@ -583,7 +582,7 @@ export default function Page() {
               </button>
 
               {bookingStatus && (
-                <div className="text-sm text-orange-900">{bookingStatus}</div>
+                <div className="text-sm text-[#f58220]">{bookingStatus}</div>
               )}
             </div>
           )}
