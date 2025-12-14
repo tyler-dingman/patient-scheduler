@@ -309,250 +309,291 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-black p-6">
-      <div className="mx-auto max-w-4xl grid gap-6 md:grid-cols-2">
-        {/* Chat */}
-        <section className="bg-white rounded-xl shadow p-4">
-          <h1 className="text-xl font-semibold mb-2">
-            Patient Scheduling Demo
-          </h1>
-
-          <div className="h-[420px] overflow-auto border rounded p-3 mb-3 bg-gray-50">
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`mb-2 ${
-                  m.role === "user" ? "text-right" : ""
-                }`}
-              >
-                <span
-                  className={`inline-block rounded px-3 py-2 text-sm ${
-                    m.role === "user"
-                      ? "bg-blue-600 text-white"
-                      : m.role === "system"
-                      ? "bg-yellow-100"
-                      : "bg-white border"
-                  }`}
-                >
-                  {m.text}
-                </span>
-              </div>
-            ))}
-            {loading && (
-              <div className="text-sm text-gray-500">
-                Thinking…
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              className="flex-1 border rounded px-3 py-2 text-sm"
-              placeholder="e.g. sore throat, rash, knee pain…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            />
-            <button
-              className="bg-blue-600 text-white rounded px-4 py-2 text-sm"
-              onClick={handleSend}
-              disabled={loading}
-            >
-              Send
-            </button>
-          </div>
-        </section>
-
-        {/* Results */}
-        <section className="bg-white rounded-xl shadow p-4">
-          <h2 className="font-medium mb-2">Next steps</h2>
-
-          {!careOptions && (
-            <p className="text-sm text-gray-600">
-              Describe your issue to see options.
-            </p>
-          )}
-
-          {careOptions && (
-            <>
-              <div className="mb-3">
-                <div className="font-medium mb-1">
-                  Care type
+    <main className="min-h-screen bg-[radial-gradient(circle_at_20%_20%,#e1eeff,transparent_35%),radial-gradient(circle_at_80%_0,#dff6ff,transparent_30%),#f2f6fb] text-slate-900">
+      <div className="mx-auto max-w-5xl px-4 py-10 lg:py-16">
+        <div className="grid gap-6 lg:grid-cols-[420px_1fr] items-start">
+          <div className="hidden lg:flex items-center justify-center">
+            <div className="relative">
+              <div className="h-16 w-16 rounded-2xl bg-white shadow-lg flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-sky-500 flex items-center justify-center text-white text-xl font-semibold">
+                  💬
                 </div>
-                {careOptions.map((o) => (
-                  <label
-                    key={o.provider_type}
-                    className="block text-sm"
-                  >
-                    <input
-                      type="radio"
-                      className="mr-2"
-                      checked={
-                        selectedCareType === o.provider_type
-                      }
-                      onChange={() =>
-                        setSelectedCareType(o.provider_type)
-                      }
-                    />
-                    {o.label}{" "}
-                    {o.suggested && (
-                      <span className="text-green-700 text-xs">
-                        (suggested)
-                      </span>
-                    )}
-                  </label>
-                ))}
+              </div>
+              <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full bg-red-500 border-2 border-white shadow" />
+            </div>
+          </div>
+
+          {/* Chat */}
+          <section className="relative overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-sky-100">
+            <div className="bg-gradient-to-r from-sky-500 to-blue-600 px-6 py-4 text-white">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center text-lg font-semibold">
+                  PS
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm opacity-90">We typically reply in a few minutes</div>
+                  <div className="text-lg font-semibold">Patient Scheduler</div>
+                </div>
+                <span className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">⌄</span>
+              </div>
+            </div>
+
+            <div className="space-y-4 bg-gradient-to-b from-white via-white to-sky-50 px-6 py-5">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Online now • let us know how we can help
               </div>
 
-              <div className="mb-3">
-                <div className="font-medium mb-1">Visit mode</div>
-                <label className="mr-4 text-sm">
-                  <input
-                    type="radio"
-                    className="mr-2"
-                    checked={mode === "in_person"}
-                    onChange={() => setMode("in_person")}
-                  />
-                  In person
-                </label>
-                <label className="text-sm">
-                  <input
-                    type="radio"
-                    className="mr-2"
-                    checked={mode === "virtual"}
-                    onChange={() => setMode("virtual")}
-                  />
-                  Virtual
-                </label>
-              </div>
-
-              <button
-                className="w-full bg-gray-900 text-white rounded px-3 py-2 text-sm mb-3"
-                onClick={loadAvailability}
-                disabled={loading}
-              >
-                Load availability
-              </button>
-            </>
-          )}
-
-          {availability && (
-            <div className="max-h-72 overflow-auto">
-              {availability.length === 0 && (
-                <p className="text-sm text-gray-600">
-                  No slots available for that care type.
-                </p>
-              )}
-
-              {availability.slice(0, 20).map((s, i) => {
-                const isSelected =
-                  selectedSlot?.start === s.start &&
-                  selectedSlot?.provider_id === s.provider_id;
-                return (
+              <div className="h-[460px] overflow-auto rounded-2xl border border-sky-100 bg-white/80 p-4 shadow-inner">
+                {messages.map((m, i) => (
                   <div
                     key={i}
-                    className={`border rounded p-2 mb-2 text-sm ${
-                      isSelected ? "bg-blue-50 border-blue-400" : "bg-gray-50"
-                    }`}
+                    className={`mb-3 flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <div className="font-medium">
-                      {new Date(s.start).toLocaleString()} ({s.mode.replace("_", " ")})
-                    </div>
-                    <div className="text-gray-600">
-                      {s.provider_name} • {s.location_name}
-                    </div>
-                    <button
-                      className="mt-2 inline-flex items-center rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white"
-                      onClick={() => holdSlot(s)}
-                      disabled={loading}
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                        m.role === "user"
+                          ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-br-sm"
+                          : m.role === "system"
+                          ? "bg-amber-50 border border-amber-200 text-amber-900"
+                          : "bg-white border border-slate-100 text-slate-800"
+                      }`}
                     >
-                      {isSelected ? "Held" : "Hold this time"}
-                    </button>
+                      {m.text}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-
-          {holdId && selectedSlot && (
-            <div className="mt-3 border rounded p-3 bg-green-50 text-sm space-y-2">
-              <div className="font-medium text-green-800">
-                Holding {new Date(selectedSlot.start).toLocaleString()} with {selectedSlot.provider_name}
+                ))}
+                {loading && (
+                  <div className="text-sm text-slate-500">Thinking…</div>
+                )}
               </div>
-              {holdExpiresAt && (
-                <div className="text-green-900">
-                  Hold expires at {new Date(holdExpiresAt).toLocaleTimeString()}.
+
+              <div className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow-md ring-1 ring-sky-100">
+                <input
+                  className="flex-1 bg-transparent px-2 py-2 text-sm placeholder:text-slate-400 focus:outline-none"
+                  placeholder="e.g. sore throat, rash, knee pain…"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                />
+                <button
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
+                  onClick={handleSend}
+                  disabled={loading}
+                  aria-label="Send message"
+                >
+                  ➤
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.08em] text-slate-400">
+                <span>Powered by Patient Scheduler</span>
+                <span className="text-sky-500">Trusted care</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Results */}
+          <section className="rounded-3xl bg-white/90 p-6 shadow-xl ring-1 ring-sky-100 backdrop-blur">
+            <h2 className="mb-3 text-lg font-semibold text-slate-800">Next steps</h2>
+
+            {!careOptions && (
+              <p className="text-sm text-slate-600">
+                Describe your issue to see care options tailored to you.
+              </p>
+            )}
+
+            {careOptions && (
+              <>
+                <div className="mb-4 space-y-2 rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Care type
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    {careOptions.map((o) => (
+                      <label
+                        key={o.provider_type}
+                        className="flex items-center justify-between rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100"
+                      >
+                        <div>
+                          <div className="font-medium text-slate-800">{o.label}</div>
+                          {o.suggested && (
+                            <div className="text-[11px] font-semibold uppercase text-emerald-600">
+                              Suggested match
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="radio"
+                          className="h-4 w-4 accent-sky-500"
+                          checked={selectedCareType === o.provider_type}
+                          onChange={() => setSelectedCareType(o.provider_type)}
+                        />
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <label className="text-xs uppercase text-gray-600">
-                  First name
-                  <input
-                    className="w-full border rounded px-2 py-1 text-sm"
-                    value={patientFirstName}
-                    onChange={(e) => setPatientFirstName(e.target.value)}
-                  />
-                </label>
-                <label className="text-xs uppercase text-gray-600">
-                  Last name
-                  <input
-                    className="w-full border rounded px-2 py-1 text-sm"
-                    value={patientLastName}
-                    onChange={(e) => setPatientLastName(e.target.value)}
-                  />
-                </label>
-                <label className="text-xs uppercase text-gray-600">
-                  Date of birth
-                  <input
-                    className="w-full border rounded px-2 py-1 text-sm"
-                    type="date"
-                    value={patientDob}
-                    onChange={(e) => setPatientDob(e.target.value)}
-                  />
-                </label>
-                <label className="text-xs uppercase text-gray-600">
-                  Phone
-                  <input
-                    className="w-full border rounded px-2 py-1 text-sm"
-                    value={patientPhone}
-                    onChange={(e) => setPatientPhone(e.target.value)}
-                  />
-                </label>
-                <label className="text-xs uppercase text-gray-600">
-                  Email (optional)
-                  <input
-                    className="w-full border rounded px-2 py-1 text-sm"
-                    type="email"
-                    value={patientEmail}
-                    onChange={(e) => setPatientEmail(e.target.value)}
-                  />
-                </label>
-                <label className="text-xs uppercase text-gray-600 md:col-span-2">
-                  Notes
-                  <textarea
-                    className="w-full border rounded px-2 py-1 text-sm"
-                    rows={2}
-                    value={patientNotes}
-                    onChange={(e) => setPatientNotes(e.target.value)}
-                  />
-                </label>
+                <div className="mb-4 rounded-2xl border border-sky-100 bg-white p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Visit mode
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                    <label className="flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-2 ring-1 ring-sky-100">
+                      <input
+                        type="radio"
+                        className="h-4 w-4 accent-sky-500"
+                        checked={mode === "in_person"}
+                        onChange={() => setMode("in_person")}
+                      />
+                      In person
+                    </label>
+                    <label className="flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-2 ring-1 ring-sky-100">
+                      <input
+                        type="radio"
+                        className="h-4 w-4 accent-sky-500"
+                        checked={mode === "virtual"}
+                        onChange={() => setMode("virtual")}
+                      />
+                      Virtual
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  className="mb-4 w-full rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:opacity-50"
+                  onClick={loadAvailability}
+                  disabled={loading}
+                >
+                  Load availability
+                </button>
+              </>
+            )}
+
+            {availability && (
+              <div className="max-h-80 space-y-3 overflow-auto rounded-2xl border border-slate-100 bg-white p-3">
+                {availability.length === 0 && (
+                  <p className="text-sm text-slate-600">
+                    No slots available for that care type.
+                  </p>
+                )}
+
+                {availability.slice(0, 20).map((s, i) => {
+                  const isSelected =
+                    selectedSlot?.start === s.start &&
+                    selectedSlot?.provider_id === s.provider_id;
+                  return (
+                    <div
+                      key={i}
+                      className={`rounded-2xl border p-3 text-sm shadow-sm transition ${
+                        isSelected
+                          ? "border-sky-300 bg-sky-50"
+                          : "border-slate-100 bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-slate-800">
+                            {new Date(s.start).toLocaleString()} ({s.mode.replace("_", " ")})
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {s.provider_name} • {s.location_name}
+                          </div>
+                        </div>
+                        <button
+                          className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-200 transition hover:bg-sky-50 disabled:opacity-50"
+                          onClick={() => holdSlot(s)}
+                          disabled={loading}
+                        >
+                          {isSelected ? "Held" : "Hold this time"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            )}
 
-              <button
-                className="w-full rounded bg-emerald-700 px-3 py-2 text-sm font-medium text-white"
-                onClick={bookAppointment}
-                disabled={loading}
-              >
-                Book appointment
-              </button>
+            {holdId && selectedSlot && (
+              <div className="mt-4 space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm shadow-inner">
+                <div className="font-semibold text-emerald-800">
+                  Holding {new Date(selectedSlot.start).toLocaleString()} with {selectedSlot.provider_name}
+                </div>
+                {holdExpiresAt && (
+                  <div className="text-emerald-900">
+                    Hold expires at {new Date(holdExpiresAt).toLocaleTimeString()}.
+                  </div>
+                )}
 
-              {bookingStatus && (
-                <div className="text-sm text-green-900">{bookingStatus}</div>
-              )}
-            </div>
-          )}
-        </section>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    First name
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                      value={patientFirstName}
+                      onChange={(e) => setPatientFirstName(e.target.value)}
+                    />
+                  </label>
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Last name
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                      value={patientLastName}
+                      onChange={(e) => setPatientLastName(e.target.value)}
+                    />
+                  </label>
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Date of birth
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                      type="date"
+                      value={patientDob}
+                      onChange={(e) => setPatientDob(e.target.value)}
+                    />
+                  </label>
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Phone
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                      value={patientPhone}
+                      onChange={(e) => setPatientPhone(e.target.value)}
+                    />
+                  </label>
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                    Email (optional)
+                    <input
+                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                      type="email"
+                      value={patientEmail}
+                      onChange={(e) => setPatientEmail(e.target.value)}
+                    />
+                  </label>
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 md:col-span-2">
+                    Notes
+                    <textarea
+                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                      rows={2}
+                      value={patientNotes}
+                      onChange={(e) => setPatientNotes(e.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <button
+                  className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:opacity-50"
+                  onClick={bookAppointment}
+                  disabled={loading}
+                >
+                  Book appointment
+                </button>
+
+                {bookingStatus && (
+                  <div className="text-sm text-emerald-900">{bookingStatus}</div>
+                )}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </main>
   );
