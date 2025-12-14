@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 type Role = "user" | "assistant" | "system";
 
@@ -116,6 +116,22 @@ export default function Page() {
 
   const [bookingStatus, setBookingStatus] = useState<string | null>(null);
 
+  const [insuranceFlowActive, setInsuranceFlowActive] = useState(false);
+  const [insuranceFilter, setInsuranceFilter] = useState("");
+  const [selectedInsurance, setSelectedInsurance] = useState<string | null>(
+    null
+  );
+
+  const [symptomFlowActive, setSymptomFlowActive] = useState(false);
+  const [symptomStep, setSymptomStep] = useState(0);
+  const [symptomResponses, setSymptomResponses] = useState<
+    Record<string, string>
+  >({});
+  const [geoStatus, setGeoStatus] = useState<
+    "idle" | "locating" | "granted" | "denied"
+  >("idle");
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+
   function getErrorMessage(error: unknown) {
     if (error instanceof Error) return error.message;
     try {
@@ -142,11 +158,105 @@ export default function Page() {
   }
 
   const quickPrompts = [
-    "I think I have the flu",
+    "I am looking for a PCP who accepts my insurance",
     "I’m feeling chest tightness",
-    "I need to see a dermatologist",
-    "My child has a fever",
+    "My child has a sore throat",
+    "Help me find a dermatologist",
   ];
+
+  const insurancePlans = [
+    { name: "UnitedHealthcare", shorthand: "UHC", color: "#0c4ea3" },
+    { name: "Wellmark Blue Cross Blue Shield", shorthand: "BCBS", color: "#0072ce" },
+    { name: "Anthem Blue Cross Blue Shield", shorthand: "Anthem", color: "#1654b5" },
+    { name: "Aetna", shorthand: "Aetna", color: "#7f1d7c" },
+    { name: "Cigna", shorthand: "Cigna", color: "#0099cc" },
+    { name: "Wellpoint (formerly Amerigroup)", shorthand: "Wellpoint", color: "#0056b3" },
+    { name: "Medicaid", shorthand: "Medicaid", color: "#0f766e" },
+  ];
+
+  const symptomQuestions = [
+    {
+      id: "duration",
+      question: "How long has the sore throat lasted?",
+      options: ["Less than a day", "1-3 days", "More than 3 days"],
+    },
+    {
+      id: "fever",
+      question: "Is there a fever present?",
+      options: ["No fever", "Mild fever", "High fever"],
+    },
+    {
+      id: "breathing",
+      question: "Any trouble breathing or swallowing?",
+      options: ["No", "Mild discomfort", "Yes, significant"],
+    },
+  ];
+
+  useEffect(() => {
+    if (!symptomFlowActive || geoStatus !== "idle") return;
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoStatus("denied");
+      return;
+    }
+
+    setGeoStatus("locating");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`;
+        setUserLocation(coords);
+        setGeoStatus("granted");
+      },
+      () => setGeoStatus("denied")
+    );
+  }, [symptomFlowActive, geoStatus]);
+
+  function resetFlows() {
+    setInsuranceFlowActive(false);
+    setInsuranceFilter("");
+    setSelectedInsurance(null);
+    setSymptomFlowActive(false);
+    setSymptomStep(0);
+    setSymptomResponses({});
+    setGeoStatus("idle");
+    setUserLocation(null);
+  }
+
+  function isInsuranceQuery(text: string) {
+    const normalized = text.toLowerCase();
+    return (
+      normalized.includes("pcp") ||
+      normalized.includes("primary care")
+    ) && normalized.includes("insurance");
+  }
+
+  function isSymptomQuery(text: string) {
+    const normalized = text.toLowerCase();
+    return normalized.includes("sore throat") || normalized.includes("symptom checker");
+  }
+
+  function answerSymptomQuestion(option: string) {
+    const current = symptomQuestions[symptomStep];
+    if (!current) return;
+
+    setSymptomResponses((prev) => ({ ...prev, [current.id]: option }));
+    const nextStep = symptomStep + 1;
+
+    if (nextStep >= symptomQuestions.length) {
+      setSymptomStep(nextStep);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: `Thanks for the details. I’ll check urgent care times ${
+            userLocation ? `near ${userLocation}` : "near you"
+          }.`,
+        },
+      ]);
+    } else {
+      setSymptomStep(nextStep);
+    }
+  }
 
   async function handleSend(customText?: string) {
     const raw = customText ?? input;
@@ -164,9 +274,57 @@ export default function Page() {
     setSelectedCareType(null);
     setIntent(null);
     setBookingStatus(null);
+    resetFlows();
 
     setMessages((m) => [...m, { role: "user", text }]);
     setLoading(true);
+
+    if (isInsuranceQuery(text)) {
+      setLoading(false);
+      setInsuranceFlowActive(true);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: "Choose from a list of popular insurance plans and I’ll find PCPs who accept them.",
+        },
+      ]);
+      return;
+    }
+
+    if (isSymptomQuery(text)) {
+      setLoading(false);
+      setSymptomFlowActive(true);
+      setIntent({
+        escalate: false,
+        not_medical_advice: "This is not medical advice.",
+        visit_reason_code: "SORE_THROAT",
+        visit_reason_label: "sore throat",
+        recommended_provider_type: "urgent_care",
+        confidence: "high",
+      });
+      setCareOptions([
+        {
+          provider_type: "urgent_care",
+          label: "Urgent care (nearby clinics)",
+          suggested: true,
+        },
+        {
+          provider_type: "primary_care",
+          label: "Primary care follow-up",
+          suggested: false,
+        },
+      ]);
+      setSelectedCareType("urgent_care");
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: "Let’s run a quick symptom check to match an urgent care slot and geolocate you automatically.",
+        },
+      ]);
+      return;
+    }
 
     try {
       const intentResp = await postJSON<SearchIntentResponse>(
@@ -318,6 +476,22 @@ export default function Page() {
     }
   }
 
+  const filteredInsurancePlans = insurancePlans.filter((plan) =>
+    plan.name.toLowerCase().includes(insuranceFilter.toLowerCase())
+  );
+
+  const symptomComplete = symptomStep >= symptomQuestions.length;
+  const geoStatusLabel =
+    geoStatus === "locating"
+      ? "Locating you…"
+      : geoStatus === "granted"
+      ? userLocation
+        ? `Using location: ${userLocation}`
+        : "Location confirmed"
+      : geoStatus === "denied"
+      ? "Location not shared"
+      : "Auto-location ready";
+
   return (
     <main className="relative min-h-screen bg-[#f58220] px-4 py-6 text-slate-900 lg:py-10">
 
@@ -395,6 +569,142 @@ export default function Page() {
         </div>
 
         <div className="flex flex-col gap-4 bg-white/95 px-5 py-5 lg:overflow-y-auto lg:px-6 lg:py-7">
+          {insuranceFlowActive && (
+            <div className="space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">
+                    Insurance filter
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    Choose from a list of popular insurance plans.
+                  </div>
+                </div>
+                {selectedInsurance && (
+                  <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
+                    {selectedInsurance}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3 rounded-2xl bg-[#f58220]/10 p-3">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                  Popular carriers
+                  <div className="mt-2 flex items-center gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-[#f58220]/20">
+                    <span className="text-lg">🔎</span>
+                    <input
+                      className="w-full bg-transparent text-sm outline-none"
+                      placeholder="Search for insurance"
+                      value={insuranceFilter}
+                      onChange={(e) => setInsuranceFilter(e.target.value)}
+                    />
+                  </div>
+                </label>
+
+                <div className="space-y-2">
+                  {filteredInsurancePlans.map((plan) => {
+                    const isSelected = plan.name === selectedInsurance;
+                    return (
+                      <button
+                        key={plan.name}
+                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+                          isSelected
+                            ? "border-[#f58220]/50 bg-white"
+                            : "border-[#f58220]/20 bg-white"
+                        }`}
+                        onClick={() => setSelectedInsurance(plan.name)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="flex h-11 w-11 items-center justify-center rounded-xl text-sm font-semibold text-white shadow"
+                            style={{ backgroundColor: plan.color }}
+                          >
+                            {plan.shorthand}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900">{plan.name}</div>
+                            <div className="text-xs text-slate-600">PCPs that accept your coverage</div>
+                          </div>
+                        </div>
+                        <div className="text-lg">{isSelected ? "✅" : ""}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="text-xs text-slate-500">
+                  Looking for something else? Type another plan name and I’ll match it.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {symptomFlowActive && (
+            <div className="space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">
+                    Symptom checker
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    I’ll ask a few questions, then find urgent care near you.
+                  </div>
+                </div>
+                <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-[11px] font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
+                  {geoStatusLabel}
+                </span>
+              </div>
+
+              {!symptomComplete && (
+                <div className="space-y-3 rounded-xl bg-[#f58220]/10 p-3">
+                  <div className="text-sm font-semibold text-slate-900">
+                    {symptomQuestions[symptomStep]?.question}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {symptomQuestions[symptomStep]?.options.map((option) => (
+                      <button
+                        key={option}
+                        className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-800 ring-1 ring-[#f58220]/25 transition hover:-translate-y-0.5 hover:shadow"
+                        onClick={() => answerSymptomQuestion(option)}
+                        disabled={loading}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Question {symptomStep + 1} of {symptomQuestions.length}
+                  </div>
+                </div>
+              )}
+
+              {symptomComplete && (
+                <div className="space-y-3 rounded-xl bg-[#f58220]/10 p-3">
+                  <div className="text-sm font-semibold text-slate-900">
+                    Great, here’s what I gathered:
+                  </div>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                    {symptomQuestions.map((q) => (
+                      <li key={q.id}>
+                        {q.question}: <span className="font-semibold">{symptomResponses[q.id]}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="text-sm text-[#f58220]">
+                    I’ll look for urgent care times {userLocation ? `near ${userLocation}` : "near you"}.
+                  </div>
+                  <button
+                    className="w-full rounded-xl bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow transition hover:shadow-md disabled:opacity-60"
+                    onClick={loadAvailability}
+                    disabled={loading}
+                  >
+                    Find urgent care availability
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {!careOptions && (
             <div className="rounded-2xl border border-[#f58220]/25 bg-[#f58220]/10 p-4 text-sm text-[#f58220] shadow-sm">
               Tell me what’s going on, and I’ll suggest the best care options.
