@@ -23,7 +23,7 @@ class SearchIntentResponse(BaseModel):
     visit_reason_label: Optional[str] = None
     recommended_provider_type: Optional[ProviderType] = None
     confidence: Optional[str] = None
-    follow_up_questions: List[str] = []
+    follow_up_questions: List[str] = Field(default_factory=list)
 
 
 class CareOption(BaseModel):
