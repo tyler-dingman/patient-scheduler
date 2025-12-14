@@ -59,6 +59,20 @@ type BookAppointmentResponse = {
   status: "confirmed";
 };
 
+type ProviderSummary = {
+  provider_id: string;
+  name: string;
+  provider_type: CareOption["provider_type"];
+  accepts_virtual: boolean;
+  location_name: string;
+  location_city: string;
+  location_state: string;
+  next_available_start?: string | null;
+  next_available_mode?: "in_person" | "virtual" | null;
+};
+
+type ProvidersResponse = { providers: ProviderSummary[] };
+
 type Msg = { role: Role; text: string };
 
 const API_BASE =
@@ -70,6 +84,31 @@ function todayISO() {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function providerInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
+
+function formatSpecialty(type: CareOption["provider_type"]) {
+  switch (type) {
+    case "primary_care":
+      return "Primary Care";
+    case "urgent_care":
+      return "Urgent Care";
+    case "dermatology":
+      return "Dermatology";
+    case "orthopedics":
+      return "Orthopedics";
+    default:
+      return "Provider";
+  }
 }
 
 export default function Page() {
@@ -107,6 +146,13 @@ export default function Page() {
   const [patientNotes, setPatientNotes] = useState("");
 
   const [bookingStatus, setBookingStatus] = useState<string | null>(null);
+
+  const [providerMatches, setProviderMatches] = useState<ProviderSummary[] | null>(
+    null
+  );
+  const [providerDiscoveryMode, setProviderDiscoveryMode] = useState<
+    "idle" | "finding"
+  >("idle");
 
   const [insuranceFlowActive, setInsuranceFlowActive] = useState(false);
   const [insuranceFilter, setInsuranceFilter] = useState("");
@@ -212,6 +258,13 @@ export default function Page() {
     setSymptomResponses({});
     setGeoStatus("idle");
     setUserLocation(null);
+    setProviderMatches(null);
+    setProviderDiscoveryMode("idle");
+  }
+
+  function isPrimaryCareQuery(text: string) {
+    const normalized = text.toLowerCase();
+    return normalized.includes("primary care") || normalized.includes("pcp");
   }
 
   function isInsuranceQuery(text: string) {
@@ -225,6 +278,56 @@ export default function Page() {
   function isSymptomQuery(text: string) {
     const normalized = text.toLowerCase();
     return normalized.includes("sore throat") || normalized.includes("symptom checker");
+  }
+
+  async function fetchPrimaryCareProviders() {
+    setProviderDiscoveryMode("finding");
+    setProviderMatches(null);
+
+    try {
+      const resp = await getJSON<ProvidersResponse>(
+        `/api/providers?provider_type=primary_care&limit=5&mode=${mode}`
+      );
+
+      setProviderMatches(resp.providers);
+      setSelectedCareType("primary_care");
+      setIntent({
+        escalate: false,
+        not_medical_advice:
+          "This tool provides scheduling assistance only and is not medical advice.",
+        visit_reason_code: "PRIMARY_CARE_VISIT",
+        visit_reason_label: "a primary care visit",
+        recommended_provider_type: "primary_care",
+        confidence: "high",
+      });
+      setCareOptions([
+        {
+          provider_type: "primary_care",
+          label: "Primary care (AI matched)",
+          suggested: true,
+        },
+        {
+          provider_type: "urgent_care",
+          label: "Urgent care (just in case)",
+          suggested: false,
+        },
+      ]);
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: "Here are primary care providers surfaced from our directory with live availability.",
+        },
+      ]);
+    } catch (e: unknown) {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
+      ]);
+    } finally {
+      setLoading(false);
+      setProviderDiscoveryMode("idle");
+    }
   }
 
   function answerSymptomQuestion(option: string) {
@@ -281,6 +384,11 @@ export default function Page() {
           text: "Choose from a list of popular insurance plans and I’ll find PCPs who accept them.",
         },
       ]);
+      return;
+    }
+
+    if (isPrimaryCareQuery(text)) {
+      await fetchPrimaryCareProviders();
       return;
     }
 
@@ -533,6 +641,95 @@ export default function Page() {
               </button>
             ))}
           </div>
+
+          {providerDiscoveryMode === "finding" && (
+            <div className="mt-3 flex items-center gap-3 rounded-3xl border border-[#f58220]/25 bg-gradient-to-r from-[#f58220]/10 via-white to-white p-4 shadow-inner ring-1 ring-[#f58220]/20">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f58220] text-lg text-white shadow-md">
+                ✨
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                  AI mode
+                </div>
+                <div className="text-sm text-slate-700">
+                  Searching the provider directory for primary care matches…
+                </div>
+              </div>
+            </div>
+          )}
+
+          {providerMatches && providerMatches.length > 0 && (
+            <div className="mt-3 space-y-3 rounded-3xl border border-[#f58220]/25 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                    Primary care near you
+                  </div>
+                  <div className="text-sm text-slate-600">AI-ranked providers with live availability.</div>
+                </div>
+                <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
+                  Live
+                </span>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {providerMatches.map((p) => (
+                  <div
+                    key={p.provider_id}
+                    className="group relative overflow-hidden rounded-2xl border border-[#f58220]/15 bg-gradient-to-br from-white via-white to-[#f58220]/5 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#f58220] to-amber-400 text-sm font-semibold text-white shadow-inner">
+                        {providerInitials(p.name)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-slate-900">{p.name}</div>
+                        <div className="text-xs text-slate-600">
+                          {formatSpecialty(p.provider_type)} • {p.location_city}, {p.location_state}
+                        </div>
+                        <div className="text-[11px] uppercase tracking-wide text-[#f58220]">{p.location_name}</div>
+                      </div>
+                      <div className="text-right text-xs text-slate-600">
+                        {p.next_available_start ? (
+                          <div className="space-y-1 text-right">
+                            <div className="text-[11px] font-semibold uppercase text-[#f58220]">Next</div>
+                            <div className="text-sm font-semibold text-slate-900">
+                              {new Date(p.next_available_start).toLocaleString(undefined, {
+                                weekday: "short",
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {p.next_available_mode === "virtual" ? "Virtual" : "In person"}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-slate-500">No openings in the next two weeks</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <button
+                        className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/30 transition group-hover:-translate-y-0.5 disabled:opacity-50"
+                        onClick={() => {
+                          setSelectedCareType("primary_care");
+                          loadAvailability();
+                        }}
+                        disabled={loading}
+                      >
+                        See times
+                      </button>
+                      {p.accepts_virtual && (
+                        <span className="text-[11px] text-slate-500">Offers virtual visits</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-[#f58220]/25 bg-white/90 p-4 shadow-inner">
             <div className="flex-1 space-y-3 overflow-auto pr-1">

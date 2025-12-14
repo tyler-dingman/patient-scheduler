@@ -36,6 +36,22 @@ class CareOptionsResponse(BaseModel):
     options: List[CareOption]
 
 
+class ProviderSummary(BaseModel):
+    provider_id: str
+    name: str
+    provider_type: ProviderType
+    accepts_virtual: bool
+    location_name: str
+    location_city: str
+    location_state: str
+    next_available_start: Optional[datetime] = None
+    next_available_mode: Optional[VisitMode] = None
+
+
+class ProvidersResponse(BaseModel):
+    providers: List[ProviderSummary]
+
+
 class AvailabilityResponseSlot(BaseModel):
     provider_id: str
     provider_name: str

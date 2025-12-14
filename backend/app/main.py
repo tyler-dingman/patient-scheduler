@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import uuid
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -15,6 +15,7 @@ from .schemas import (
     AvailabilityResponse, AvailabilityResponseSlot,
     CreateHoldRequest, CreateHoldResponse,
     BookAppointmentRequest, BookAppointmentResponse,
+    ProviderSummary, ProvidersResponse,
 )
 from .services.triage import detect_red_flags
 from .services.intent import map_to_intent
@@ -130,6 +131,78 @@ def care_options(visit_reason_code: str, recommended_provider_type: str):
         for o in options:
             o.suggested = (o.provider_type == "primary_care")
     return CareOptionsResponse(options=options)
+
+
+@app.get("/api/providers", response_model=ProvidersResponse)
+def provider_directory(
+    provider_type: str | None = None,
+    limit: int = 5,
+    mode: str | None = None,
+    start_date: date | None = None,
+    days: int = 14,
+    session: Session = Depends(get_session),
+):
+    start = start_date or date.today()
+
+    query = select(Provider)
+    if provider_type:
+        query = query.where(Provider.provider_type == provider_type)
+
+    providers = session.exec(query).all()
+    providers.sort(key=lambda p: p.name)
+    providers = providers[:limit]
+
+    if not providers:
+        return ProvidersResponse(providers=[])
+
+    locs = {l.id: l for l in session.exec(select(Location)).all()}
+    booked_rows = session.exec(
+        select(Appointment).where(
+            Appointment.provider_id.in_([p.id for p in providers]),
+            Appointment.status == "confirmed",
+        )
+    ).all()
+    booked = {(b.provider_id, b.start, b.mode) for b in booked_rows}
+
+    summaries: list[ProviderSummary] = []
+    for p in providers:
+        loc = locs.get(p.location_id)
+        if not loc:
+            continue
+
+        mode_choices: list[str] = []
+        if mode:
+            mode_choices.append(mode)
+        else:
+            mode_choices.append("in_person")
+            if p.accepts_virtual:
+                mode_choices.append("virtual")
+
+        candidates = []
+        for m in mode_choices:
+            slots = adapter.generate_availability([p.id], start, days, m)  # type: ignore[arg-type]
+            for s in slots:
+                if (p.id, s.start, s.mode) in booked:
+                    continue
+                candidates.append(s)
+
+        next_slot = min(candidates, key=lambda s: s.start) if candidates else None
+
+        summaries.append(
+            ProviderSummary(
+                provider_id=p.id,
+                name=p.name,
+                provider_type=p.provider_type,
+                accepts_virtual=p.accepts_virtual,
+                location_name=loc.name,
+                location_city=loc.city,
+                location_state=loc.state,
+                next_available_start=next_slot.start if next_slot else None,
+                next_available_mode=next_slot.mode if next_slot else None,
+            )
+        )
+
+    return ProvidersResponse(providers=summaries)
 
 
 @app.get("/api/availability", response_model=AvailabilityResponse)
