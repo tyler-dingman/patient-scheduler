@@ -79,7 +79,7 @@ export default function Page() {
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: "assistant",
-      text: "Hi! Tell me what’s going on and I’ll help you schedule care.",
+      text: "Hi, I’m Optum Companion. Tell me what’s going on and I’ll guide you to the right care.",
     },
     {
       role: "system",
@@ -142,11 +142,21 @@ export default function Page() {
     return res.json();
   }
 
-  async function handleSend() {
-    if (!input.trim()) return;
+  const quickPrompts = [
+    "I think I have the flu",
+    "I’m feeling chest tightness",
+    "I need to see a dermatologist",
+    "My child has a fever",
+  ];
 
-    const text = input.trim();
-    setInput("");
+  async function handleSend(customText?: string) {
+    const raw = customText ?? input;
+    if (!raw.trim()) return;
+
+    const text = raw.trim();
+    if (!customText) {
+      setInput("");
+    }
     setAvailability(null);
     setSelectedSlot(null);
     setHoldId(null);
@@ -310,9 +320,14 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_20%_20%,#fff2e5,transparent_35%),radial-gradient(circle_at_80%_0,#ffe6cc,transparent_30%),#fffaf5] text-slate-900">
-      <div className="mx-auto max-w-5xl px-4 py-8 lg:py-14">
-        <header className="mb-8 flex items-center gap-3 rounded-2xl bg-white/80 p-4 shadow-md ring-1 ring-amber-100 backdrop-blur">
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 text-slate-900">
+      <div className="pointer-events-none absolute inset-0 opacity-40">
+        <div className="absolute left-10 top-16 h-80 w-80 rounded-full bg-emerald-500 blur-3xl" />
+        <div className="absolute right-24 top-24 h-72 w-72 rounded-full bg-amber-400 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto max-w-5xl px-4 py-10 lg:py-14">
+        <header className="mb-6 flex items-center gap-3 rounded-2xl bg-white/90 p-4 shadow-lg ring-1 ring-emerald-100/60 backdrop-blur">
           <Image
             src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCwaop_x0gpvZQwzpHV-2eDdxuja2PAQjqvQ&s"
             alt="Optum logo"
@@ -321,60 +336,57 @@ export default function Page() {
             className="h-12 w-auto"
           />
           <div>
-            <div className="text-sm uppercase tracking-[0.14em] text-amber-700">Optum</div>
-            <div className="text-xl font-semibold text-slate-900">Care Scheduling Assistant</div>
-            <div className="text-sm text-slate-600">
-              Personalized support to help you find the right care faster.
-            </div>
+            <div className="text-xs uppercase tracking-[0.16em] text-emerald-700">Optum companion</div>
+            <div className="text-xl font-semibold text-slate-900">Your care, in one conversation</div>
+            <div className="text-sm text-slate-600">Book appointments, ask questions, and get matched to the right care.</div>
           </div>
         </header>
 
-        <div className="grid items-start gap-6 lg:grid-cols-[420px_1fr]">
-          <div className="hidden lg:flex items-center justify-center">
-            <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xl font-semibold">
-                  💬
-                </div>
+        <section className="relative overflow-hidden rounded-3xl bg-white/95 shadow-2xl ring-1 ring-emerald-100/70">
+          <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-amber-500 px-6 py-5 text-white">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-base font-semibold backdrop-blur">OC</div>
+              <div className="flex-1">
+                <div className="text-sm opacity-90">Hi, I’m Optum Companion</div>
+                <div className="text-lg font-semibold leading-tight">How can I help?</div>
               </div>
-              <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full bg-red-500 border-2 border-white shadow" />
+              <div className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide">Online</div>
             </div>
           </div>
 
-          {/* Chat */}
-          <section className="relative overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-amber-100">
-            <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-white">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-lg font-semibold">
-                  OC
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm opacity-90">We typically reply in a few minutes</div>
-                  <div className="text-lg font-semibold">Optum Care Assistant</div>
-                </div>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">⌄</span>
-              </div>
+          <div className="space-y-5 bg-gradient-to-b from-white via-white to-emerald-50/50 px-6 py-6">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+              Personalized suggestions based on your symptoms and preferences.
             </div>
 
-            <div className="space-y-4 bg-gradient-to-b from-white via-white to-amber-50/60 px-6 py-5">
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                Online now • let us know how we can help
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {quickPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  className="rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+                  onClick={() => handleSend(prompt)}
+                  disabled={loading}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
 
-              <div className="h-[460px] overflow-auto rounded-2xl border border-amber-100 bg-white/85 p-4 shadow-inner">
+            <div className="rounded-2xl border border-emerald-100 bg-white/90 p-4 shadow-inner">
+              <div className="h-[420px] overflow-auto space-y-3">
                 {messages.map((m, i) => (
                   <div
                     key={i}
-                    className={`mb-3 flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                    className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow ${
                         m.role === "user"
-                          ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-br-sm"
+                          ? "rounded-br-sm bg-gradient-to-r from-emerald-600 to-amber-500 text-white"
                           : m.role === "system"
-                          ? "bg-amber-50 border border-amber-200 text-amber-900"
-                          : "bg-white/95 border border-amber-50 text-slate-800"
+                          ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-100"
+                          : "bg-white text-slate-800 ring-1 ring-slate-100"
                       }`}
                     >
                       {m.text}
@@ -386,232 +398,225 @@ export default function Page() {
                 )}
               </div>
 
-              <div className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow-md ring-1 ring-amber-100">
+              <div className="mt-4 flex items-center gap-3 rounded-full bg-slate-50 px-3 py-2 shadow-sm ring-1 ring-emerald-100">
                 <input
                   className="flex-1 bg-transparent px-2 py-2 text-sm placeholder:text-slate-400 focus:outline-none"
-                  placeholder="e.g. sore throat, rash, knee pain…"
+                  placeholder="Ask about symptoms, appointments, or next steps"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 />
                 <button
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
-                  onClick={handleSend}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-emerald-600 to-amber-500 text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
+                  onClick={() => handleSend()}
                   disabled={loading}
                   aria-label="Send message"
                 >
                   ➤
                 </button>
               </div>
-
-              <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.08em] text-slate-400">
-                <span>Powered by Optum</span>
-                <span className="text-amber-600">Trusted care</span>
-              </div>
             </div>
-          </section>
 
-          {/* Results */}
-          <section className="rounded-3xl bg-white/90 p-6 shadow-xl ring-1 ring-amber-100 backdrop-blur">
-            <h2 className="mb-3 text-lg font-semibold text-slate-800">Next steps</h2>
+            <div className="space-y-4">
+              {!careOptions && (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm text-emerald-900">
+                  Tell me what’s going on, and I’ll suggest the best care options.
+                </div>
+              )}
 
-            {!careOptions && (
-              <p className="text-sm text-slate-600">
-                Describe your issue to see care options tailored to you.
-              </p>
-            )}
-
-            {careOptions && (
-              <>
-                <div className="mb-4 space-y-2 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Care type
+              {careOptions && (
+                <div className="space-y-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Recommended care type</div>
+                      <div className="text-sm text-slate-600">Choose how you want to be seen.</div>
+                    </div>
+                    <button
+                      className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 shadow-sm disabled:opacity-60"
+                      onClick={loadAvailability}
+                      disabled={loading}
+                    >
+                      Load availability
+                    </button>
                   </div>
+
                   <div className="space-y-2 text-sm">
                     {careOptions.map((o) => (
                       <label
                         key={o.provider_type}
-                        className="flex items-center justify-between rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100"
+                        className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2 shadow-sm"
                       >
                         <div>
-                          <div className="font-medium text-slate-800">{o.label}</div>
+                          <div className="font-medium text-slate-900">{o.label}</div>
                           {o.suggested && (
-                            <div className="text-[11px] font-semibold uppercase text-emerald-600">
-                              Suggested match
-                            </div>
+                            <div className="text-[11px] font-semibold uppercase text-emerald-600">Suggested match</div>
                           )}
                         </div>
                         <input
                           type="radio"
-                          className="h-4 w-4 accent-amber-500"
+                          className="h-4 w-4 accent-emerald-600"
                           checked={selectedCareType === o.provider_type}
                           onChange={() => setSelectedCareType(o.provider_type)}
                         />
                       </label>
                     ))}
                   </div>
-                </div>
 
-                <div className="mb-4 rounded-2xl border border-amber-100 bg-white p-4">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Visit mode
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                    <label className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 ring-1 ring-amber-100">
-                      <input
-                        type="radio"
-                        className="h-4 w-4 accent-amber-500"
-                        checked={mode === "in_person"}
-                        onChange={() => setMode("in_person")}
-                      />
-                      In person
-                    </label>
-                    <label className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 ring-1 ring-amber-100">
-                      <input
-                        type="radio"
-                        className="h-4 w-4 accent-amber-500"
-                        checked={mode === "virtual"}
-                        onChange={() => setMode("virtual")}
-                      />
-                      Virtual
-                    </label>
-                  </div>
-                </div>
-
-                <button
-                  className="mb-4 w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:opacity-50"
-                  onClick={loadAvailability}
-                  disabled={loading}
-                >
-                  Load availability
-                </button>
-              </>
-            )}
-
-            {availability && (
-              <div className="max-h-80 space-y-3 overflow-auto rounded-2xl border border-slate-100 bg-white p-3">
-                {availability.length === 0 && (
-                  <p className="text-sm text-slate-600">
-                    No slots available for that care type.
-                  </p>
-                )}
-
-                {availability.slice(0, 20).map((s, i) => {
-                  const isSelected =
-                    selectedSlot?.start === s.start &&
-                    selectedSlot?.provider_id === s.provider_id;
-                  return (
-                    <div
-                      key={i}
-                      className={`rounded-2xl border p-3 text-sm shadow-sm transition ${
-                        isSelected
-                          ? "border-amber-300 bg-amber-50"
-                          : "border-slate-100 bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="font-semibold text-slate-800">
-                            {new Date(s.start).toLocaleString()} ({s.mode.replace("_", " ")})
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {s.provider_name} • {s.location_name}
-                          </div>
-                        </div>
-                        <button
-                          className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 transition hover:bg-amber-50 disabled:opacity-50"
-                          onClick={() => holdSlot(s)}
-                          disabled={loading}
-                        >
-                          {isSelected ? "Held" : "Hold this time"}
-                        </button>
-                      </div>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 text-sm text-emerald-900">
+                    <div className="text-xs font-semibold uppercase tracking-wide">Visit mode</div>
+                    <div className="mt-2 flex flex-wrap gap-3">
+                      <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm ring-1 ring-emerald-100">
+                        <input
+                          type="radio"
+                          className="h-4 w-4 accent-emerald-600"
+                          checked={mode === "in_person"}
+                          onChange={() => setMode("in_person")}
+                        />
+                        In person
+                      </label>
+                      <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm ring-1 ring-emerald-100">
+                        <input
+                          type="radio"
+                          className="h-4 w-4 accent-emerald-600"
+                          checked={mode === "virtual"}
+                          onChange={() => setMode("virtual")}
+                        />
+                        Virtual
+                      </label>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {holdId && selectedSlot && (
-              <div className="mt-4 space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm shadow-inner">
-                <div className="font-semibold text-emerald-800">
-                  Holding {new Date(selectedSlot.start).toLocaleString()} with {selectedSlot.provider_name}
-                </div>
-                {holdExpiresAt && (
-                  <div className="text-emerald-900">
-                    Hold expires at {new Date(holdExpiresAt).toLocaleTimeString()}.
                   </div>
-                )}
-
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                    First name
-                    <input
-                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
-                      value={patientFirstName}
-                      onChange={(e) => setPatientFirstName(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                    Last name
-                    <input
-                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
-                      value={patientLastName}
-                      onChange={(e) => setPatientLastName(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                    Date of birth
-                    <input
-                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
-                      type="date"
-                      value={patientDob}
-                      onChange={(e) => setPatientDob(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                    Phone
-                    <input
-                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
-                      value={patientPhone}
-                      onChange={(e) => setPatientPhone(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                    Email (optional)
-                    <input
-                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
-                      type="email"
-                      value={patientEmail}
-                      onChange={(e) => setPatientEmail(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 md:col-span-2">
-                    Notes
-                    <textarea
-                      className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
-                      rows={2}
-                      value={patientNotes}
-                      onChange={(e) => setPatientNotes(e.target.value)}
-                    />
-                  </label>
                 </div>
+              )}
 
-                <button
-                  className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:opacity-50"
-                  onClick={bookAppointment}
-                  disabled={loading}
-                >
-                  Book appointment
-                </button>
+              {availability && (
+                <div className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Available times</div>
+                  {availability.length === 0 && (
+                    <p className="text-sm text-slate-600">No slots available for that care type.</p>
+                  )}
 
-                {bookingStatus && (
-                  <div className="text-sm text-emerald-900">{bookingStatus}</div>
-                )}
+                  {availability.slice(0, 20).map((s, i) => {
+                    const isSelected =
+                      selectedSlot?.start === s.start &&
+                      selectedSlot?.provider_id === s.provider_id;
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-2xl border p-3 text-sm shadow-sm transition ${
+                          isSelected
+                            ? "border-emerald-300 bg-emerald-50"
+                            : "border-slate-100 bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="font-semibold text-slate-900">
+                              {new Date(s.start).toLocaleString()} ({s.mode.replace("_", " ")})
+                            </div>
+                            <div className="text-xs text-slate-600">
+                              {s.provider_name} • {s.location_name}
+                            </div>
+                          </div>
+                          <button
+                            className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-50 disabled:opacity-50"
+                            onClick={() => holdSlot(s)}
+                            disabled={loading}
+                          >
+                            {isSelected ? "Held" : "Hold this time"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {holdId && selectedSlot && (
+                <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm shadow-inner">
+                  <div className="font-semibold text-emerald-800">
+                    Holding {new Date(selectedSlot.start).toLocaleString()} with {selectedSlot.provider_name}
+                  </div>
+                  {holdExpiresAt && (
+                    <div className="text-emerald-900">
+                      Hold expires at {new Date(holdExpiresAt).toLocaleTimeString()}.
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      First name
+                      <input
+                        className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                        value={patientFirstName}
+                        onChange={(e) => setPatientFirstName(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Last name
+                      <input
+                        className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                        value={patientLastName}
+                        onChange={(e) => setPatientLastName(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Date of birth
+                      <input
+                        className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                        type="date"
+                        value={patientDob}
+                        onChange={(e) => setPatientDob(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Phone
+                      <input
+                        className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                        value={patientPhone}
+                        onChange={(e) => setPatientPhone(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Email (optional)
+                      <input
+                        className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                        type="email"
+                        value={patientEmail}
+                        onChange={(e) => setPatientEmail(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 md:col-span-2">
+                      Notes
+                      <textarea
+                        className="mt-1 w-full rounded-xl border border-white bg-white px-3 py-2 text-sm shadow-sm ring-1 ring-emerald-100 focus:outline-none"
+                        rows={2}
+                        value={patientNotes}
+                        onChange={(e) => setPatientNotes(e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <button
+                    className="w-full rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:opacity-50"
+                    onClick={bookAppointment}
+                    disabled={loading}
+                  >
+                    Book appointment
+                  </button>
+
+                  {bookingStatus && (
+                    <div className="text-sm text-emerald-900">{bookingStatus}</div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.08em] text-slate-400">
+                <span>Powered by Optum</span>
+                <span className="text-emerald-600">Caring for what’s next</span>
               </div>
-            )}
-          </section>
-        </div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );
