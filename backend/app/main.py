@@ -61,12 +61,20 @@ def on_startup():
             ))
             s.commit()
 
-        if not s.exec(select(Provider)).first():
-            s.add(Provider(id="prov_1", name="Dr. Maya Patel", provider_type="primary_care", location_id="loc_1", accepts_virtual=True))
-            s.add(Provider(id="prov_2", name="Dr. James Lee", provider_type="urgent_care", location_id="loc_1", accepts_virtual=True))
-            s.add(Provider(id="prov_3", name="Dr. Sofia Kim", provider_type="dermatology", location_id="loc_2", accepts_virtual=True))
-            s.add(Provider(id="prov_4", name="Dr. Ethan Ross", provider_type="orthopedics", location_id="loc_2", accepts_virtual=False))
-            s.commit()
+        providers = [
+            Provider(id="prov_1", name="Dr. Maya Patel", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
+            Provider(id="prov_2", name="Dr. James Lee", provider_type="urgent_care", location_id="loc_1", accepts_virtual=True),
+            Provider(id="prov_3", name="Dr. Sofia Kim", provider_type="dermatology", location_id="loc_2", accepts_virtual=True),
+            Provider(id="prov_4", name="Dr. Ethan Ross", provider_type="orthopedics", location_id="loc_2", accepts_virtual=False),
+            Provider(id="prov_5", name="Dr. Elena Garcia", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
+            Provider(id="prov_6", name="Dr. Marcus Chen", provider_type="primary_care", location_id="loc_2", accepts_virtual=False),
+        ]
+
+        for provider in providers:
+            if not s.get(Provider, provider.id):
+                s.add(provider)
+
+        s.commit()
 
 
 @app.post("/api/search-intent", response_model=SearchIntentResponse)
