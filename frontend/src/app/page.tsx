@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import React, { useEffect, useState } from "react";
 
 type Role = "user" | "assistant" | "system";
@@ -79,10 +80,6 @@ export default function Page() {
     {
       role: "assistant",
       text: "Hi, I’m Optum Companion. Tell me what’s going on and I’ll guide you to the right care.",
-    },
-    {
-      role: "system",
-      text: "This is a demo scheduling assistant (not medical advice).",
     },
   ]);
 
@@ -497,21 +494,23 @@ export default function Page() {
 
       <section className="relative mx-auto flex max-h-[92vh] max-w-[50rem] flex-col gap-5 overflow-hidden rounded-[32px] border border-[#f58220]/25 bg-white/95 shadow-2xl ring-1 ring-[#f58220]/25 lg:max-h-[90vh]">
         <div className="relative flex flex-col bg-gradient-to-b from-white via-[#f58220]/10 to-white px-5 pb-5 pt-4 lg:p-7">
-          <div className="mb-5 flex items-center gap-3 rounded-2xl bg-[#f58220]/10 px-4 py-3 ring-1 ring-[#f58220]/25">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f58220] text-base font-semibold text-white shadow-lg">OC</div>
-            <div className="flex-1">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#f58220]">Optum Companion</div>
-              <div className="text-lg font-semibold leading-tight text-slate-900">Let’s handle your care in one chat.</div>
-              <div className="text-sm text-slate-600">Ask questions, book visits, and get matched to the right option.</div>
+          <div className="mb-4 flex items-center gap-4 rounded-2xl bg-white/80 px-4 py-4 shadow-sm ring-1 ring-[#f58220]/20">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-[#f58220]/20">
+              <Image
+                src="/optum-o.svg"
+                alt="Optum O logo"
+                width={40}
+                height={40}
+                className="h-10 w-10"
+                priority
+              />
+            </div>
+            <div className="text-xl font-semibold leading-snug text-slate-900">
+              Hi, I’m Optum Companion. Tell me what’s going on and I’ll guide you to the right care.
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-            <span className="flex h-2 w-2 rounded-full bg-[#f58220]" />
-            Personalized suggestions stay inside this conversation.
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-1 flex flex-wrap gap-2">
             {quickPrompts.map((prompt) => (
               <button
                 key={prompt}
@@ -704,12 +703,6 @@ export default function Page() {
             </div>
           )}
 
-          {!careOptions && (
-            <div className="rounded-2xl border border-[#f58220]/25 bg-[#f58220]/10 p-4 text-sm text-[#f58220] shadow-sm">
-              Tell me what’s going on, and I’ll suggest the best care options.
-            </div>
-          )}
-
           {careOptions && (
             <div className="space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -895,11 +888,6 @@ export default function Page() {
               )}
             </div>
           )}
-
-          <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.08em] text-slate-400">
-            <span>Powered by Optum</span>
-            <span className="text-[#f58220]">Caring for what’s next</span>
-          </div>
         </div>
       </section>
     </main>
