@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import React, { useState } from "react";
 
 type Role = "user" | "assistant" | "system";
@@ -309,13 +310,30 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_20%_20%,#e1eeff,transparent_35%),radial-gradient(circle_at_80%_0,#dff6ff,transparent_30%),#f2f6fb] text-slate-900">
-      <div className="mx-auto max-w-5xl px-4 py-10 lg:py-16">
-        <div className="grid gap-6 lg:grid-cols-[420px_1fr] items-start">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_20%_20%,#fff2e5,transparent_35%),radial-gradient(circle_at_80%_0,#ffe6cc,transparent_30%),#fffaf5] text-slate-900">
+      <div className="mx-auto max-w-5xl px-4 py-8 lg:py-14">
+        <header className="mb-8 flex items-center gap-3 rounded-2xl bg-white/80 p-4 shadow-md ring-1 ring-amber-100 backdrop-blur">
+          <Image
+            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCwaop_x0gpvZQwzpHV-2eDdxuja2PAQjqvQ&s"
+            alt="Optum logo"
+            width={120}
+            height={48}
+            className="h-12 w-auto"
+          />
+          <div>
+            <div className="text-sm uppercase tracking-[0.14em] text-amber-700">Optum</div>
+            <div className="text-xl font-semibold text-slate-900">Care Scheduling Assistant</div>
+            <div className="text-sm text-slate-600">
+              Personalized support to help you find the right care faster.
+            </div>
+          </div>
+        </header>
+
+        <div className="grid items-start gap-6 lg:grid-cols-[420px_1fr]">
           <div className="hidden lg:flex items-center justify-center">
             <div className="relative">
-              <div className="h-16 w-16 rounded-2xl bg-white shadow-lg flex items-center justify-center">
-                <div className="h-10 w-10 rounded-xl bg-sky-500 flex items-center justify-center text-white text-xl font-semibold">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xl font-semibold">
                   💬
                 </div>
               </div>
@@ -324,27 +342,27 @@ export default function Page() {
           </div>
 
           {/* Chat */}
-          <section className="relative overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-sky-100">
-            <div className="bg-gradient-to-r from-sky-500 to-blue-600 px-6 py-4 text-white">
+          <section className="relative overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-amber-100">
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-white">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center text-lg font-semibold">
-                  PS
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-lg font-semibold">
+                  OC
                 </div>
                 <div className="flex-1">
                   <div className="text-sm opacity-90">We typically reply in a few minutes</div>
-                  <div className="text-lg font-semibold">Patient Scheduler</div>
+                  <div className="text-lg font-semibold">Optum Care Assistant</div>
                 </div>
-                <span className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">⌄</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">⌄</span>
               </div>
             </div>
 
-            <div className="space-y-4 bg-gradient-to-b from-white via-white to-sky-50 px-6 py-5">
-              <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="space-y-4 bg-gradient-to-b from-white via-white to-amber-50/60 px-6 py-5">
+              <div className="flex items-center gap-2 text-sm text-slate-600">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 Online now • let us know how we can help
               </div>
 
-              <div className="h-[460px] overflow-auto rounded-2xl border border-sky-100 bg-white/80 p-4 shadow-inner">
+              <div className="h-[460px] overflow-auto rounded-2xl border border-amber-100 bg-white/85 p-4 shadow-inner">
                 {messages.map((m, i) => (
                   <div
                     key={i}
@@ -353,10 +371,10 @@ export default function Page() {
                     <div
                       className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
                         m.role === "user"
-                          ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-br-sm"
+                          ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-br-sm"
                           : m.role === "system"
                           ? "bg-amber-50 border border-amber-200 text-amber-900"
-                          : "bg-white border border-slate-100 text-slate-800"
+                          : "bg-white/95 border border-amber-50 text-slate-800"
                       }`}
                     >
                       {m.text}
@@ -368,7 +386,7 @@ export default function Page() {
                 )}
               </div>
 
-              <div className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow-md ring-1 ring-sky-100">
+              <div className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow-md ring-1 ring-amber-100">
                 <input
                   className="flex-1 bg-transparent px-2 py-2 text-sm placeholder:text-slate-400 focus:outline-none"
                   placeholder="e.g. sore throat, rash, knee pain…"
@@ -377,7 +395,7 @@ export default function Page() {
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 />
                 <button
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
                   onClick={handleSend}
                   disabled={loading}
                   aria-label="Send message"
@@ -387,14 +405,14 @@ export default function Page() {
               </div>
 
               <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.08em] text-slate-400">
-                <span>Powered by Patient Scheduler</span>
-                <span className="text-sky-500">Trusted care</span>
+                <span>Powered by Optum</span>
+                <span className="text-amber-600">Trusted care</span>
               </div>
             </div>
           </section>
 
           {/* Results */}
-          <section className="rounded-3xl bg-white/90 p-6 shadow-xl ring-1 ring-sky-100 backdrop-blur">
+          <section className="rounded-3xl bg-white/90 p-6 shadow-xl ring-1 ring-amber-100 backdrop-blur">
             <h2 className="mb-3 text-lg font-semibold text-slate-800">Next steps</h2>
 
             {!careOptions && (
@@ -405,7 +423,7 @@ export default function Page() {
 
             {careOptions && (
               <>
-                <div className="mb-4 space-y-2 rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
+                <div className="mb-4 space-y-2 rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Care type
                   </div>
@@ -425,7 +443,7 @@ export default function Page() {
                         </div>
                         <input
                           type="radio"
-                          className="h-4 w-4 accent-sky-500"
+                          className="h-4 w-4 accent-amber-500"
                           checked={selectedCareType === o.provider_type}
                           onChange={() => setSelectedCareType(o.provider_type)}
                         />
@@ -434,24 +452,24 @@ export default function Page() {
                   </div>
                 </div>
 
-                <div className="mb-4 rounded-2xl border border-sky-100 bg-white p-4">
+                <div className="mb-4 rounded-2xl border border-amber-100 bg-white p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Visit mode
                   </div>
                   <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                    <label className="flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-2 ring-1 ring-sky-100">
+                    <label className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 ring-1 ring-amber-100">
                       <input
                         type="radio"
-                        className="h-4 w-4 accent-sky-500"
+                        className="h-4 w-4 accent-amber-500"
                         checked={mode === "in_person"}
                         onChange={() => setMode("in_person")}
                       />
                       In person
                     </label>
-                    <label className="flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-2 ring-1 ring-sky-100">
+                    <label className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 ring-1 ring-amber-100">
                       <input
                         type="radio"
-                        className="h-4 w-4 accent-sky-500"
+                        className="h-4 w-4 accent-amber-500"
                         checked={mode === "virtual"}
                         onChange={() => setMode("virtual")}
                       />
@@ -461,7 +479,7 @@ export default function Page() {
                 </div>
 
                 <button
-                  className="mb-4 w-full rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:opacity-50"
+                  className="mb-4 w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl disabled:opacity-50"
                   onClick={loadAvailability}
                   disabled={loading}
                 >
@@ -487,7 +505,7 @@ export default function Page() {
                       key={i}
                       className={`rounded-2xl border p-3 text-sm shadow-sm transition ${
                         isSelected
-                          ? "border-sky-300 bg-sky-50"
+                          ? "border-amber-300 bg-amber-50"
                           : "border-slate-100 bg-slate-50"
                       }`}
                     >
@@ -501,7 +519,7 @@ export default function Page() {
                           </div>
                         </div>
                         <button
-                          className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-200 transition hover:bg-sky-50 disabled:opacity-50"
+                          className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200 transition hover:bg-amber-50 disabled:opacity-50"
                           onClick={() => holdSlot(s)}
                           disabled={loading}
                         >
