@@ -79,7 +79,8 @@ type Msg = { role: Role; text: string };
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ||
   // Use relative requests in production to avoid mixed-content issues over HTTPS
-  (typeof window !== "undefined" && window.location.hostname !== "localhost"
+  (typeof window !== "undefined" &&
+    !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
     ? ""
     : "http://127.0.0.1:8000");
 
