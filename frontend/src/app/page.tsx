@@ -497,9 +497,10 @@ export default function Page() {
   return (
     <main className="relative min-h-screen bg-[#f58220] px-4 py-6 text-slate-900 lg:py-10">
 
-      <section className="relative mx-auto flex max-h-[92vh] max-w-[50rem] flex-col gap-5 overflow-hidden rounded-[32px] border border-[#f58220]/25 bg-white/95 shadow-2xl ring-1 ring-[#f58220]/25 lg:max-h-[90vh]">
-        <div className="relative flex flex-col bg-gradient-to-b from-white via-[#f58220]/10 to-white px-5 pb-5 pt-4 lg:p-7">
-          <div className="mb-4 flex items-center gap-4 rounded-2xl bg-white/80 px-4 py-4 shadow-sm ring-1 ring-[#f58220]/20">
+      <section className="relative mx-auto flex max-h-[92vh] max-w-[50rem] flex-col overflow-hidden rounded-[32px] border border-[#f58220]/25 bg-white/95 shadow-2xl ring-1 ring-[#f58220]/25 lg:max-h-[90vh]">
+        <div className="flex-1 space-y-5 overflow-y-auto">
+          <div className="relative flex flex-1 flex-col overflow-hidden bg-gradient-to-b from-white via-[#f58220]/10 to-white px-5 pb-5 pt-4 lg:p-7">
+            <div className="mb-4 flex items-center gap-4 rounded-2xl bg-white/80 px-4 py-4 shadow-sm ring-1 ring-[#f58220]/20">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-[#f58220]/20">
               <Image
                 src="/optum-o.svg"
@@ -554,33 +555,6 @@ export default function Page() {
                 </div>
               ))}
               {loading && <div className="text-sm text-slate-500">Thinking…</div>}
-            </div>
-
-            <div className="mt-4 flex items-center gap-3 rounded-full bg-[#f58220]/10 px-3 py-2 shadow-sm ring-1 ring-[#f58220]/30">
-              <input
-                className="flex-1 bg-transparent px-2 py-2 text-sm placeholder:text-slate-400 focus:outline-none"
-                placeholder="Tell me what’s happening or ask about next steps"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              />
-              <button
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg text-[#f58220] shadow-sm ring-1 ring-[#f58220]/20 transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50"
-                onClick={handleVoiceChat}
-                disabled={loading}
-                aria-label="Start voice chat"
-                type="button"
-              >
-                🎤
-              </button>
-              <button
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f58220] text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
-                onClick={() => handleSend()}
-                disabled={loading}
-                aria-label="Send message"
-              >
-                ↑
-              </button>
             </div>
           </div>
         </div>
@@ -907,6 +881,35 @@ export default function Page() {
               )}
             </div>
           )}
+        </div>
+
+        </div>
+
+        <div className="sticky bottom-0 flex items-center gap-3 border-t border-[#f58220]/20 bg-white/95 px-5 py-4 lg:px-6">
+          <input
+            className="flex-1 rounded-full border border-[#f58220]/30 bg-[#f58220]/5 px-4 py-3 text-sm placeholder:text-slate-400 shadow-sm focus:outline-none"
+            placeholder="Tell me what’s happening or ask about next steps"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          />
+          <button
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-lg text-[#f58220] shadow-sm ring-1 ring-[#f58220]/20 transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50"
+            onClick={handleVoiceChat}
+            disabled={loading}
+            aria-label="Start voice chat"
+            type="button"
+          >
+            🎤
+          </button>
+          <button
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f58220] text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
+            onClick={() => handleSend()}
+            disabled={loading}
+            aria-label="Send message"
+          >
+            ↑
+          </button>
         </div>
       </section>
     </main>
