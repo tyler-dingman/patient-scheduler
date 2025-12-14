@@ -10,6 +10,7 @@ ProviderType = Literal[
     "dermatology",
     "orthopedics",
     "cardiology",
+    "neurology",
 ]
 VisitMode = Literal["in_person", "virtual"]
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 type Role = "user" | "assistant" | "system";
 
@@ -21,21 +21,18 @@ type SearchIntentResponse = {
   confidence?: string | null;
 };
 
-type CareOption = {
-  provider_type:
-    | "primary_care"
-    | "urgent_care"
-    | "dermatology"
-    | "orthopedics"
-    | "cardiology";
-  label: string;
-  suggested: boolean;
-};
+type ProviderType =
+  | "primary_care"
+  | "urgent_care"
+  | "dermatology"
+  | "orthopedics"
+  | "cardiology"
+  | "neurology";
 
 type ProviderSummary = {
   provider_id: string;
   name: string;
-  provider_type: CareOption["provider_type"];
+  provider_type: ProviderType;
   accepts_virtual: boolean;
   location_name: string;
   location_city: string;
@@ -53,7 +50,7 @@ type AppointmentSlot = {
 };
 
 type ProviderDiscoveryContext = {
-  providerType: ProviderSummary["provider_type"];
+  providerType: ProviderType;
   locationLabel: string;
 };
 
@@ -72,7 +69,7 @@ function providerInitials(name: string) {
     .toUpperCase();
 }
 
-function formatSpecialty(type: CareOption["provider_type"]) {
+function formatSpecialty(type: ProviderType) {
   switch (type) {
     case "primary_care":
       return "Primary Care";
@@ -84,6 +81,8 @@ function formatSpecialty(type: CareOption["provider_type"]) {
       return "Orthopedics";
     case "cardiology":
       return "Cardiology";
+    case "neurology":
+      return "Neurology";
     default:
       return "Provider";
   }
@@ -185,9 +184,9 @@ export default function Page() {
   const quickPrompts = [
     "Find a primary care provider near me",
     "Find a cardiologist near me",
-    "Which doctors do virtual visits?",
+    "Find a neurologist near me",
     "What’s the earliest available appointment?",
-    "Find a pediatrician accepting new patients",
+    "Which doctors accept my insurance?",
   ];
 
   const insurancePlans = [
@@ -253,10 +252,17 @@ export default function Page() {
 
   function isInsuranceQuery(text: string) {
     const normalized = text.toLowerCase();
-    return (
-      normalized.includes("pcp") ||
-      normalized.includes("primary care")
-    ) && normalized.includes("insurance");
+    const mentionsInsurance =
+      normalized.includes("insurance") ||
+      normalized.includes("coverage") ||
+      normalized.includes("plan");
+    const mentionsDoctor =
+      normalized.includes("doctor") ||
+      normalized.includes("provider") ||
+      normalized.includes("accept") ||
+      normalized.includes("which doctors");
+
+    return mentionsInsurance && mentionsDoctor;
   }
 
   function isSymptomQuery(text: string) {
@@ -291,12 +297,16 @@ export default function Page() {
   function detectProviderSearch(text: string) {
     const normalized = text.toLowerCase();
     const specialties: {
-      providerType: ProviderSummary["provider_type"];
+      providerType: ProviderType;
       keywords: string[];
     }[] = [
       {
         providerType: "cardiology",
         keywords: ["cardiologist", "cardiology", "heart doctor", "heart specialist"],
+      },
+      {
+        providerType: "neurology",
+        keywords: ["neurologist", "neurology", "brain doctor", "nerve"],
       },
       {
         providerType: "primary_care",
@@ -326,45 +336,85 @@ export default function Page() {
     return null;
   }
 
-  async function fetchProvidersByType(
-    providerType: ProviderSummary["provider_type"],
-    query?: string,
-    locationLabel: string = "near you"
-  ) {
-    setProviderDiscoveryMode("finding");
-    setProviderMatches(null);
-    setProviderDiscoveryContext({ providerType, locationLabel });
-
-    try {
-      const resp = await getJSON<ProvidersResponse>(
-        `/api/providers?provider_type=${providerType}&limit=4&mode=${mode}`
-      );
-
-      setProviderMatches(resp.providers);
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text: `Sure — here are ${formatSpecialty(
-            providerType
-          ).toLowerCase()} options ${locationLabel}${
-            query ? ` based on "${query}".` : "."
-          }`,
-        },
-      ]);
-    } catch (e: unknown) {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
-      ]);
-    } finally {
-      setLoading(false);
-      setProviderDiscoveryMode("idle");
-    }
+  function isNextAvailableRequest(text: string) {
+    const normalized = text.toLowerCase();
+    return (
+      normalized.includes("next available") ||
+      normalized.includes("earliest available") ||
+      normalized.includes("soonest") ||
+      normalized.includes("first available")
+    );
   }
+
+  const fetchProvidersByType = useCallback(
+    async (
+      providerType: ProviderType,
+      query?: string,
+      locationLabel: string = "near you",
+      intent?: "next_available" | "insurance_filter"
+    ) => {
+      setProviderDiscoveryMode("finding");
+      setProviderMatches(null);
+      setProviderDiscoveryContext({ providerType, locationLabel });
+
+      try {
+        const resp = await getJSON<ProvidersResponse>(
+          `/api/providers?provider_type=${providerType}&limit=4&mode=${mode}`
+        );
+
+        setProviderMatches(resp.providers);
+        const specialtyLabel = formatSpecialty(providerType).toLowerCase();
+        const intro =
+          intent === "insurance_filter"
+            ? `Here are ${specialtyLabel} options ${locationLabel} that accept ${
+                query ?? "your insurance"
+              }.`
+            : intent === "next_available"
+            ? `Here are the next available ${specialtyLabel} appointments ${
+                locationLabel
+              }${query ? ` for "${query}".` : "."}`
+            : `Sure — here are ${specialtyLabel} options ${locationLabel}${
+                query ? ` based on "${query}".` : "."
+              }`;
+
+        setMessages((m) => [...m, { role: "assistant", text: intro }]);
+      } catch (e: unknown) {
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
+        ]);
+      } finally {
+        setLoading(false);
+        setProviderDiscoveryMode("idle");
+      }
+    },
+    [mode]
+  );
 
   function handleSlotSelect(provider: ProviderSummary, slot: AppointmentSlot) {
     setSelectedAppointment({ provider, slot });
+  }
+
+  function handleInsuranceSelect(planName: string) {
+    setSelectedInsurance(planName);
+
+    const providerType = providerDiscoveryContext?.providerType ?? "primary_care";
+    const locationLabel = providerDiscoveryContext?.locationLabel ?? "near you";
+
+    setMessages((m) => [
+      ...m,
+      {
+        role: "assistant",
+        text: `Great — showing ${formatSpecialty(providerType).toLowerCase()} providers ${locationLabel} who accept ${planName}.`,
+      },
+    ]);
+
+    fetchProvidersByType(
+      providerType,
+      planName,
+      locationLabel,
+      "insurance_filter"
+    );
   }
 
   function confirmSelectedAppointment() {
@@ -428,18 +478,24 @@ export default function Page() {
         ...m,
         {
           role: "assistant",
-          text: "Choose from a list of popular insurance plans and I’ll find PCPs who accept them.",
+          text: "I can help find doctors who accept your insurance. Choose a popular plan below or start typing your carrier.",
         },
       ]);
       return;
     }
 
     const providerIntent = detectProviderSearch(text);
-    if (providerIntent) {
+    const wantsNextAvailable = isNextAvailableRequest(text);
+    const inferredLocation =
+      providerIntent?.locationLabel || normalizeLocationLabel(text) || "near you";
+
+    if (providerIntent || wantsNextAvailable) {
+      const providerType = providerIntent?.providerType ?? "primary_care";
       await fetchProvidersByType(
-        providerIntent.providerType,
+        providerType,
         text,
-        providerIntent.locationLabel
+        inferredLocation,
+        wantsNextAvailable ? "next_available" : undefined
       );
       return;
     }
@@ -786,7 +842,7 @@ export default function Page() {
                             ? "border-[#f58220]/50 bg-white"
                             : "border-[#f58220]/20 bg-white"
                         }`}
-                        onClick={() => setSelectedInsurance(plan.name)}
+                        onClick={() => handleInsuranceSelect(plan.name)}
                       >
                         <div className="flex items-center gap-3">
                           <div
