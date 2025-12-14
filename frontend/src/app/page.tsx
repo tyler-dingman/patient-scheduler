@@ -495,7 +495,7 @@ export default function Page() {
   return (
     <main className="relative min-h-screen bg-[#f58220] px-4 py-6 text-slate-900 lg:py-10">
 
-      <section className="relative mx-auto flex max-h-[92vh] max-w-6xl flex-col overflow-hidden rounded-[32px] border border-[#f58220]/25 bg-white/95 shadow-2xl ring-1 ring-[#f58220]/25 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:max-h-[90vh]">
+      <section className="relative mx-auto flex max-h-[92vh] max-w-[50rem] flex-col gap-5 overflow-hidden rounded-[32px] border border-[#f58220]/25 bg-white/95 shadow-2xl ring-1 ring-[#f58220]/25 lg:max-h-[90vh]">
         <div className="relative flex flex-col bg-gradient-to-b from-white via-[#f58220]/10 to-white px-5 pb-5 pt-4 lg:p-7">
           <div className="mb-5 flex items-center gap-3 rounded-2xl bg-[#f58220]/10 px-4 py-3 ring-1 ring-[#f58220]/25">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f58220] text-base font-semibold text-white shadow-lg">OC</div>
@@ -504,7 +504,6 @@ export default function Page() {
               <div className="text-lg font-semibold leading-tight text-slate-900">Let’s handle your care in one chat.</div>
               <div className="text-sm text-slate-600">Ask questions, book visits, and get matched to the right option.</div>
             </div>
-            <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/25">Online</div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
