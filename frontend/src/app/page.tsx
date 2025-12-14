@@ -220,7 +220,7 @@ export default function Page() {
     return normalized.includes("sore throat") || normalized.includes("symptom checker");
   }
 
-  async function fetchPrimaryCareProviders() {
+  async function fetchPrimaryCareProviders(query?: string) {
     setProviderDiscoveryMode("finding");
     setProviderMatches(null);
 
@@ -234,7 +234,9 @@ export default function Page() {
         ...m,
         {
           role: "assistant",
-          text: "Here are primary care providers surfaced from our directory.",
+          text: query
+            ? `AI mode matched primary care providers for "${query}" from our directory.`
+            : "AI mode matched primary care providers from our directory.",
         },
       ]);
     } catch (e: unknown) {
@@ -298,7 +300,7 @@ export default function Page() {
     }
 
     if (isPrimaryCareQuery(text)) {
-      await fetchPrimaryCareProviders();
+      await fetchPrimaryCareProviders(text);
       return;
     }
 
