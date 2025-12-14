@@ -62,12 +62,54 @@ def on_startup():
             s.commit()
 
         providers = [
-            Provider(id="prov_1", name="Dr. Maya Patel", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
-            Provider(id="prov_2", name="Dr. James Lee", provider_type="urgent_care", location_id="loc_1", accepts_virtual=True),
-            Provider(id="prov_3", name="Dr. Sofia Kim", provider_type="dermatology", location_id="loc_2", accepts_virtual=True),
-            Provider(id="prov_4", name="Dr. Ethan Ross", provider_type="orthopedics", location_id="loc_2", accepts_virtual=False),
-            Provider(id="prov_5", name="Dr. Elena Garcia", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
-            Provider(id="prov_6", name="Dr. Marcus Chen", provider_type="primary_care", location_id="loc_2", accepts_virtual=False),
+            Provider(
+                id="prov_1",
+                name="Dr. Maya Patel",
+                provider_type="primary_care",
+                location_id="loc_1",
+                accepts_virtual=True,
+                headshot_url="/headshots/prov_1.svg",
+            ),
+            Provider(
+                id="prov_2",
+                name="Dr. James Lee",
+                provider_type="urgent_care",
+                location_id="loc_1",
+                accepts_virtual=True,
+                headshot_url="/headshots/prov_2.svg",
+            ),
+            Provider(
+                id="prov_3",
+                name="Dr. Sofia Kim",
+                provider_type="dermatology",
+                location_id="loc_2",
+                accepts_virtual=True,
+                headshot_url="/headshots/prov_3.svg",
+            ),
+            Provider(
+                id="prov_4",
+                name="Dr. Ethan Ross",
+                provider_type="orthopedics",
+                location_id="loc_2",
+                accepts_virtual=False,
+                headshot_url="/headshots/prov_4.svg",
+            ),
+            Provider(
+                id="prov_5",
+                name="Dr. Elena Garcia",
+                provider_type="primary_care",
+                location_id="loc_1",
+                accepts_virtual=True,
+                headshot_url="/headshots/prov_5.svg",
+            ),
+            Provider(
+                id="prov_6",
+                name="Dr. Marcus Chen",
+                provider_type="primary_care",
+                location_id="loc_2",
+                accepts_virtual=False,
+                headshot_url="/headshots/prov_6.svg",
+            ),
         ]
 
         for provider in providers:
@@ -202,6 +244,7 @@ def provider_directory(
                 name=p.name,
                 provider_type=p.provider_type,
                 accepts_virtual=p.accepts_virtual,
+                headshot_url=p.headshot_url,
                 location_name=loc.name,
                 location_city=loc.city,
                 location_state=loc.state,
