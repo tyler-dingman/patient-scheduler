@@ -46,6 +46,12 @@ type ProviderSummary = {
 
 type ProvidersResponse = { providers: ProviderSummary[] };
 
+type AppointmentSlot = {
+  iso: string;
+  label: string;
+  mode: "in_person" | "virtual";
+};
+
 type ProviderDiscoveryContext = {
   providerType: ProviderSummary["provider_type"];
   locationLabel: string;
@@ -83,6 +89,30 @@ function formatSpecialty(type: CareOption["provider_type"]) {
   }
 }
 
+function buildSlots(provider: ProviderSummary): AppointmentSlot[] {
+  const base = provider.next_available_start
+    ? new Date(provider.next_available_start)
+    : new Date(Date.now() + 60 * 60 * 1000);
+
+  const mode =
+    provider.next_available_mode ?? (provider.accepts_virtual ? "virtual" : "in_person");
+
+  return [0, 30, 60, 90].map((minuteOffset) => {
+    const slotDate = new Date(base.getTime() + minuteOffset * 60 * 1000);
+    const label = slotDate.toLocaleString(undefined, {
+      weekday: "short",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    return {
+      iso: slotDate.toISOString(),
+      label,
+      mode,
+    };
+  });
+}
+
 export default function Page() {
   const [sessionId] = useState(
     () => "sess_" + Math.random().toString(16).slice(2)
@@ -109,6 +139,11 @@ export default function Page() {
   const [selectedInsurance, setSelectedInsurance] = useState<string | null>(
     null
   );
+
+  const [selectedAppointment, setSelectedAppointment] = useState<{
+    provider: ProviderSummary;
+    slot: AppointmentSlot;
+  } | null>(null);
 
   const [symptomFlowActive, setSymptomFlowActive] = useState(false);
   const [symptomStep, setSymptomStep] = useState(0);
@@ -302,7 +337,7 @@ export default function Page() {
 
     try {
       const resp = await getJSON<ProvidersResponse>(
-        `/api/providers?provider_type=${providerType}&limit=3&mode=${mode}`
+        `/api/providers?provider_type=${providerType}&limit=4&mode=${mode}`
       );
 
       setProviderMatches(resp.providers);
@@ -326,6 +361,28 @@ export default function Page() {
       setLoading(false);
       setProviderDiscoveryMode("idle");
     }
+  }
+
+  function handleSlotSelect(provider: ProviderSummary, slot: AppointmentSlot) {
+    setSelectedAppointment({ provider, slot });
+  }
+
+  function confirmSelectedAppointment() {
+    if (!selectedAppointment) return;
+
+    const { provider, slot } = selectedAppointment;
+
+    setMessages((m) => [
+      ...m,
+      {
+        role: "assistant",
+        text: `Your ${slot.mode === "virtual" ? "virtual" : "in-person"} visit with ${
+          provider.name
+        } is set for ${slot.label}. I’ll share confirmation details shortly.`,
+      },
+    ]);
+
+    setSelectedAppointment(null);
   }
 
   function answerSymptomQuestion(option: string) {
@@ -559,7 +616,8 @@ export default function Page() {
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                {providerMatches.slice(0, 3).map((p) => {
+                {providerMatches.slice(0, 4).map((p) => {
+                  const slots = buildSlots(p);
                   return (
                     <div
                       key={p.provider_id}
@@ -600,9 +658,85 @@ export default function Page() {
                     {p.accepts_virtual && (
                       <div className="mt-2 text-[11px] text-slate-500">Offers virtual visits</div>
                     )}
+
+                    <div className="mt-3 space-y-2 rounded-xl bg-white/70 p-2 shadow-inner">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                        Available times
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {slots.map((slot) => {
+                          const isSelected =
+                            selectedAppointment?.provider.provider_id === p.provider_id &&
+                            selectedAppointment.slot.iso === slot.iso;
+
+                          return (
+                            <button
+                              key={slot.iso}
+                              onClick={() => handleSlotSelect(p, slot)}
+                              className={`rounded-full border px-3 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white ${
+                                isSelected
+                                  ? "border-[#f58220] bg-[#f58220] text-white shadow"
+                                  : "border-[#f58220]/30 bg-white text-[#f58220] hover:border-[#f58220] hover:bg-[#f58220]/10"
+                              }`}
+                            >
+                              {slot.label}
+                              <span className="ml-1 text-[10px] font-normal text-slate-600">
+                                {slot.mode === "virtual" ? "Virtual" : "In person"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {selectedAppointment && (
+            <div className="space-y-3 rounded-3xl border border-[#f58220]/20 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                    Appointment overview
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    Confirm the time you picked and we’ll book the visit.
+                  </div>
+                </div>
+                <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/25">
+                  Pending
+                </span>
+              </div>
+
+              <div className="space-y-1 rounded-2xl bg-gradient-to-r from-white to-[#f58220]/10 p-3 ring-1 ring-[#f58220]/15">
+                <div className="text-sm font-semibold text-slate-900">{selectedAppointment.provider.name}</div>
+                <div className="text-xs text-slate-600">
+                  {formatSpecialty(selectedAppointment.provider.provider_type)} • {selectedAppointment.provider.location_city},
+                  {" "}
+                  {selectedAppointment.provider.location_state}
+                </div>
+                <div className="text-xs text-slate-600">
+                  Location: {selectedAppointment.provider.location_name}
+                </div>
+                <div className="text-sm font-semibold text-[#f58220]">
+                  {selectedAppointment.slot.label} ·{" "}
+                  {selectedAppointment.slot.mode === "virtual" ? "Virtual visit" : "In-person visit"}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-xs text-slate-600">
+                  We’ll send confirmation and check-in details after you confirm.
+                </div>
+                <button
+                  onClick={confirmSelectedAppointment}
+                  className="inline-flex items-center justify-center rounded-full bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#d86d0f] focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-2 focus:ring-offset-white"
+                >
+                  Confirm appointment
+                </button>
               </div>
             </div>
           )}
