@@ -16,6 +16,7 @@ type SearchIntentResponse = {
     | "urgent_care"
     | "dermatology"
     | "orthopedics"
+    | "cardiology"
     | null;
   confidence?: string | null;
 };
@@ -25,7 +26,8 @@ type CareOption = {
     | "primary_care"
     | "urgent_care"
     | "dermatology"
-    | "orthopedics";
+    | "orthopedics"
+    | "cardiology";
   label: string;
   suggested: boolean;
 };
@@ -43,6 +45,11 @@ type ProviderSummary = {
 };
 
 type ProvidersResponse = { providers: ProviderSummary[] };
+
+type ProviderDiscoveryContext = {
+  providerType: ProviderSummary["provider_type"];
+  locationLabel: string;
+};
 
 type Msg = { role: Role; text: string };
 
@@ -69,6 +76,8 @@ function formatSpecialty(type: CareOption["provider_type"]) {
       return "Dermatology";
     case "orthopedics":
       return "Orthopedics";
+    case "cardiology":
+      return "Cardiology";
     default:
       return "Provider";
   }
@@ -91,6 +100,9 @@ export default function Page() {
   const [providerDiscoveryMode, setProviderDiscoveryMode] = useState<
     "idle" | "finding"
   >("idle");
+  const [providerDiscoveryContext, setProviderDiscoveryContext] = useState<
+    ProviderDiscoveryContext | null
+  >(null);
 
   const [insuranceFlowActive, setInsuranceFlowActive] = useState(false);
   const [insuranceFilter, setInsuranceFilter] = useState("");
@@ -137,6 +149,7 @@ export default function Page() {
 
   const quickPrompts = [
     "Find a primary care provider near me",
+    "Find a cardiologist near me",
     "Which doctors do virtual visits?",
     "What’s the earliest available appointment?",
     "Find a pediatrician accepting new patients",
@@ -200,11 +213,7 @@ export default function Page() {
     setUserLocation(null);
     setProviderMatches(null);
     setProviderDiscoveryMode("idle");
-  }
-
-  function isPrimaryCareQuery(text: string) {
-    const normalized = text.toLowerCase();
-    return normalized.includes("primary care") || normalized.includes("pcp");
+    setProviderDiscoveryContext(null);
   }
 
   function isInsuranceQuery(text: string) {
@@ -220,13 +229,80 @@ export default function Page() {
     return normalized.includes("sore throat") || normalized.includes("symptom checker");
   }
 
-  async function fetchPrimaryCareProviders(query?: string) {
+  function normalizeLocationLabel(text: string) {
+    const normalized = text.toLowerCase();
+    if (
+      normalized.includes("near me") ||
+      normalized.includes("nearby") ||
+      normalized.includes("around here") ||
+      normalized.includes("close to me")
+    ) {
+      return "near you";
+    }
+
+    const locationMatch = text.match(
+      /\b(?:in|near|around)\s+([A-Za-z][A-Za-z\s]{2,})/i
+    );
+    if (locationMatch?.[1]) {
+      const place = locationMatch[1].trim();
+      if (place.length > 0) {
+        return `near ${place}`;
+      }
+    }
+
+    return null;
+  }
+
+  function detectProviderSearch(text: string) {
+    const normalized = text.toLowerCase();
+    const specialties: {
+      providerType: ProviderSummary["provider_type"];
+      keywords: string[];
+    }[] = [
+      {
+        providerType: "cardiology",
+        keywords: ["cardiologist", "cardiology", "heart doctor", "heart specialist"],
+      },
+      {
+        providerType: "primary_care",
+        keywords: ["primary care", "pcp", "family doctor", "family medicine"],
+      },
+      {
+        providerType: "urgent_care",
+        keywords: ["urgent care", "walk-in", "same-day"],
+      },
+      {
+        providerType: "dermatology",
+        keywords: ["dermatology", "dermatologist", "skin doctor"],
+      },
+      {
+        providerType: "orthopedics",
+        keywords: ["orthopedic", "orthopedics", "orthopedist", "joint doctor"],
+      },
+    ];
+
+    for (const specialty of specialties) {
+      if (specialty.keywords.some((k) => normalized.includes(k))) {
+        const locationLabel = normalizeLocationLabel(text) ?? "near you";
+        return { providerType: specialty.providerType, locationLabel };
+      }
+    }
+
+    return null;
+  }
+
+  async function fetchProvidersByType(
+    providerType: ProviderSummary["provider_type"],
+    query?: string,
+    locationLabel: string = "near you"
+  ) {
     setProviderDiscoveryMode("finding");
     setProviderMatches(null);
+    setProviderDiscoveryContext({ providerType, locationLabel });
 
     try {
       const resp = await getJSON<ProvidersResponse>(
-        `/api/providers?provider_type=primary_care&limit=3&mode=${mode}`
+        `/api/providers?provider_type=${providerType}&limit=3&mode=${mode}`
       );
 
       setProviderMatches(resp.providers);
@@ -234,9 +310,11 @@ export default function Page() {
         ...m,
         {
           role: "assistant",
-          text: query
-            ? `AI mode matched primary care providers for "${query}" from our directory.`
-            : "AI mode matched primary care providers from our directory.",
+          text: `Sure — here are ${formatSpecialty(
+            providerType
+          ).toLowerCase()} options ${locationLabel}${
+            query ? ` based on "${query}".` : "."
+          }`,
         },
       ]);
     } catch (e: unknown) {
@@ -299,8 +377,13 @@ export default function Page() {
       return;
     }
 
-    if (isPrimaryCareQuery(text)) {
-      await fetchPrimaryCareProviders(text);
+    const providerIntent = detectProviderSearch(text);
+    if (providerIntent) {
+      await fetchProvidersByType(
+        providerIntent.providerType,
+        text,
+        providerIntent.locationLabel
+      );
       return;
     }
 
@@ -371,6 +454,12 @@ export default function Page() {
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  const providerLocationLabel =
+    providerDiscoveryContext?.locationLabel ?? "near you";
+  const providerSpecialtyLabel = providerDiscoveryContext
+    ? formatSpecialty(providerDiscoveryContext.providerType)
+    : "Providers";
+
   return (
     <main className="relative min-h-screen bg-[#f58220] px-4 py-6 text-slate-900 lg:py-10">
 
@@ -421,7 +510,7 @@ export default function Page() {
                   AI mode
                 </div>
                 <div className="text-sm text-slate-700">
-                  Searching the provider directory for primary care matches…
+                  Searching the provider directory for {providerSpecialtyLabel.toLowerCase()} matches {providerLocationLabel}…
                 </div>
               </div>
             </div>
@@ -460,9 +549,9 @@ export default function Page() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
-                    Primary care near you
+                    {providerSpecialtyLabel} {providerLocationLabel}
                   </div>
-                  <div className="text-sm text-slate-600">AI-ranked providers recommended for your needs.</div>
+                  <div className="text-sm text-slate-600">AI-ranked providers based on what you asked for.</div>
                 </div>
                 <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
                   Live
