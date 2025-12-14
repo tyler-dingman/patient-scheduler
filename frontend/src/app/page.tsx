@@ -54,7 +54,11 @@ type ProviderDiscoveryContext = {
   locationLabel: string;
 };
 
-type Msg = { role: Role; text: string };
+type Msg = {
+  role: Role;
+  text: string;
+  kind?: "text" | "providers" | "appointment_overview";
+};
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
@@ -377,7 +381,11 @@ export default function Page() {
                 query ? ` based on "${query}".` : "."
               }`;
 
-        setMessages((m) => [...m, { role: "assistant", text: intro }]);
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", text: intro, kind: "text" },
+          { role: "assistant", text: "", kind: "providers" },
+        ]);
       } catch (e: unknown) {
         setMessages((m) => [
           ...m,
@@ -393,6 +401,12 @@ export default function Page() {
 
   function handleSlotSelect(provider: ProviderSummary, slot: AppointmentSlot) {
     setSelectedAppointment({ provider, slot });
+
+    setMessages((m) => {
+      const hasOverview = m.some((msg) => msg.kind === "appointment_overview");
+      if (hasOverview) return m;
+      return [...m, { role: "assistant", text: "", kind: "appointment_overview" }];
+    });
   }
 
   function handleInsuranceSelect(planName: string) {
@@ -634,168 +648,185 @@ export default function Page() {
               className="flex-1 space-y-3 overflow-auto pr-1"
               ref={messagesContainerRef}
             >
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                >
+              {messages.map((m, i) => {
+                if (m.kind === "providers") {
+                  if (!providerMatches || providerMatches.length === 0) return null;
+
+                  return (
+                    <div
+                      key={`providers-${i}`}
+                      className="space-y-3 rounded-3xl border border-[#f58220]/25 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                            {providerSpecialtyLabel} {providerLocationLabel}
+                          </div>
+                          <div className="text-sm text-slate-600">AI-ranked providers based on what you asked for.</div>
+                        </div>
+                        <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
+                          Live
+                        </span>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {providerMatches.slice(0, 4).map((p) => {
+                          const slots = buildSlots(p);
+                          return (
+                            <div
+                              key={p.provider_id}
+                              className="group relative overflow-hidden rounded-2xl border border-[#f58220]/15 bg-gradient-to-br from-white via-white to-[#f58220]/5 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#f58220] to-amber-400 text-sm font-semibold text-white shadow-inner">
+                                  {providerInitials(p.name)}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-semibold text-slate-900">{p.name}</div>
+                                  <div className="text-xs text-slate-600">
+                                    {formatSpecialty(p.provider_type)} • {p.location_city}, {p.location_state}
+                                  </div>
+                                  <div className="text-[11px] uppercase tracking-wide text-[#f58220]">{p.location_name}</div>
+                                </div>
+                                <div className="text-right text-xs text-slate-600">
+                                  {p.next_available_start ? (
+                                    <div className="space-y-1 text-right">
+                                      <div className="text-[11px] font-semibold uppercase text-[#f58220]">Next</div>
+                                      <div className="text-sm font-semibold text-slate-900">
+                                        {new Date(p.next_available_start).toLocaleString(undefined, {
+                                          weekday: "short",
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                        })}
+                                      </div>
+                                      <div className="text-[11px] text-slate-500">
+                                        {p.next_available_mode === "virtual" ? "Virtual" : "In person"}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[11px] text-slate-500">No openings in the next two weeks</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {p.accepts_virtual && (
+                                <div className="mt-2 text-[11px] text-slate-500">Offers virtual visits</div>
+                              )}
+
+                              <div className="mt-3 space-y-2 rounded-xl bg-white/70 p-2 shadow-inner">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                                  Available times
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {slots.map((slot) => {
+                                    const isSelected =
+                                      selectedAppointment?.provider.provider_id === p.provider_id &&
+                                      selectedAppointment.slot.iso === slot.iso;
+
+                                    return (
+                                      <button
+                                        key={slot.iso}
+                                        onClick={() => handleSlotSelect(p, slot)}
+                                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white ${
+                                          isSelected
+                                            ? "border-[#f58220] bg-[#f58220] text-white shadow"
+                                            : "border-[#f58220]/30 bg-white text-[#f58220] hover:border-[#f58220] hover:bg-[#f58220]/10"
+                                        }`}
+                                      >
+                                        {slot.label}
+                                        <span className="ml-1 text-[10px] font-normal text-slate-600">
+                                          {slot.mode === "virtual" ? "Virtual" : "In person"}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (m.kind === "appointment_overview") {
+                  if (!selectedAppointment) return null;
+
+                  return (
+                    <div
+                      key={`appointment-${i}`}
+                      className="space-y-3 rounded-3xl border border-[#f58220]/20 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                            Appointment overview
+                          </div>
+                          <div className="text-sm text-slate-600">
+                            Confirm the time you picked and we’ll book the visit.
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/25">
+                          Pending
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 rounded-2xl bg-gradient-to-r from-white to-[#f58220]/10 p-3 ring-1 ring-[#f58220]/15">
+                        <div className="text-sm font-semibold text-slate-900">{selectedAppointment.provider.name}</div>
+                        <div className="text-xs text-slate-600">
+                          {formatSpecialty(selectedAppointment.provider.provider_type)} • {selectedAppointment.provider.location_city}, {" "}
+                          {selectedAppointment.provider.location_state}
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Location: {selectedAppointment.provider.location_name}
+                        </div>
+                        <div className="text-sm font-semibold text-[#f58220]">
+                          {selectedAppointment.slot.label} · {" "}
+                          {selectedAppointment.slot.mode === "virtual" ? "Virtual visit" : "In-person visit"}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-xs text-slate-600">
+                          We’ll send confirmation and check-in details after you confirm.
+                        </div>
+                        <button
+                          onClick={confirmSelectedAppointment}
+                          className="inline-flex items-center justify-center rounded-full bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#d86d0f] focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-2 focus:ring-offset-white"
+                        >
+                          Confirm appointment
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
                   <div
-                    className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow transition ${
-                      m.role === "user"
-                        ? "rounded-br-sm bg-[#f58220] text-white"
-                        : m.role === "system"
-                        ? "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
-                        : "bg-white text-slate-800 ring-1 ring-[#f58220]/20"
-                    }`}
+                    key={`message-${i}`}
+                    className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    {m.text}
+                    <div
+                      className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow transition ${
+                        m.role === "user"
+                          ? "rounded-br-sm bg-[#f58220] text-white"
+                          : m.role === "system"
+                          ? "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
+                          : "bg-white text-slate-800 ring-1 ring-[#f58220]/20"
+                      }`}
+                    >
+                      {m.text}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {loading && <div className="text-sm text-slate-500">Thinking…</div>}
               <div ref={scrollAnchorRef} />
             </div>
           </div>
 
-          {providerMatches && providerMatches.length > 0 && (
-            <div className="space-y-3 rounded-3xl border border-[#f58220]/25 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
-                    {providerSpecialtyLabel} {providerLocationLabel}
-                  </div>
-                  <div className="text-sm text-slate-600">AI-ranked providers based on what you asked for.</div>
-                </div>
-                <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
-                  Live
-                </span>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                {providerMatches.slice(0, 4).map((p) => {
-                  const slots = buildSlots(p);
-                  return (
-                    <div
-                      key={p.provider_id}
-                      className="group relative overflow-hidden rounded-2xl border border-[#f58220]/15 bg-gradient-to-br from-white via-white to-[#f58220]/5 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#f58220] to-amber-400 text-sm font-semibold text-white shadow-inner">
-                        {providerInitials(p.name)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-slate-900">{p.name}</div>
-                        <div className="text-xs text-slate-600">
-                          {formatSpecialty(p.provider_type)} • {p.location_city}, {p.location_state}
-                        </div>
-                        <div className="text-[11px] uppercase tracking-wide text-[#f58220]">{p.location_name}</div>
-                      </div>
-                      <div className="text-right text-xs text-slate-600">
-                        {p.next_available_start ? (
-                          <div className="space-y-1 text-right">
-                            <div className="text-[11px] font-semibold uppercase text-[#f58220]">Next</div>
-                            <div className="text-sm font-semibold text-slate-900">
-                              {new Date(p.next_available_start).toLocaleString(undefined, {
-                                weekday: "short",
-                                hour: "numeric",
-                                minute: "2-digit",
-                              })}
-                            </div>
-                            <div className="text-[11px] text-slate-500">
-                              {p.next_available_mode === "virtual" ? "Virtual" : "In person"}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-[11px] text-slate-500">No openings in the next two weeks</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {p.accepts_virtual && (
-                      <div className="mt-2 text-[11px] text-slate-500">Offers virtual visits</div>
-                    )}
-
-                    <div className="mt-3 space-y-2 rounded-xl bg-white/70 p-2 shadow-inner">
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
-                        Available times
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {slots.map((slot) => {
-                          const isSelected =
-                            selectedAppointment?.provider.provider_id === p.provider_id &&
-                            selectedAppointment.slot.iso === slot.iso;
-
-                          return (
-                            <button
-                              key={slot.iso}
-                              onClick={() => handleSlotSelect(p, slot)}
-                              className={`rounded-full border px-3 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white ${
-                                isSelected
-                                  ? "border-[#f58220] bg-[#f58220] text-white shadow"
-                                  : "border-[#f58220]/30 bg-white text-[#f58220] hover:border-[#f58220] hover:bg-[#f58220]/10"
-                              }`}
-                            >
-                              {slot.label}
-                              <span className="ml-1 text-[10px] font-normal text-slate-600">
-                                {slot.mode === "virtual" ? "Virtual" : "In person"}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {selectedAppointment && (
-            <div className="space-y-3 rounded-3xl border border-[#f58220]/20 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
-                    Appointment overview
-                  </div>
-                  <div className="text-sm text-slate-600">
-                    Confirm the time you picked and we’ll book the visit.
-                  </div>
-                </div>
-                <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/25">
-                  Pending
-                </span>
-              </div>
-
-              <div className="space-y-1 rounded-2xl bg-gradient-to-r from-white to-[#f58220]/10 p-3 ring-1 ring-[#f58220]/15">
-                <div className="text-sm font-semibold text-slate-900">{selectedAppointment.provider.name}</div>
-                <div className="text-xs text-slate-600">
-                  {formatSpecialty(selectedAppointment.provider.provider_type)} • {selectedAppointment.provider.location_city},
-                  {" "}
-                  {selectedAppointment.provider.location_state}
-                </div>
-                <div className="text-xs text-slate-600">
-                  Location: {selectedAppointment.provider.location_name}
-                </div>
-                <div className="text-sm font-semibold text-[#f58220]">
-                  {selectedAppointment.slot.label} ·{" "}
-                  {selectedAppointment.slot.mode === "virtual" ? "Virtual visit" : "In-person visit"}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-xs text-slate-600">
-                  We’ll send confirmation and check-in details after you confirm.
-                </div>
-                <button
-                  onClick={confirmSelectedAppointment}
-                  className="inline-flex items-center justify-center rounded-full bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#d86d0f] focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-2 focus:ring-offset-white"
-                >
-                  Confirm appointment
-                </button>
-              </div>
-            </div>
-          )}
+          
         </div>
 
         <div className="flex flex-col gap-4 bg-white/95 px-5 py-5 lg:overflow-y-auto lg:px-6 lg:py-7">
