@@ -76,12 +76,7 @@ export default function Page() {
   const [sessionId] = useState(
     () => "sess_" + Math.random().toString(16).slice(2)
   );
-  const [messages, setMessages] = useState<Msg[]>([
-    {
-      role: "assistant",
-      text: "Hi, I’m Optum Companion. Tell me what’s going on and I’ll guide you to the right care.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Msg[]>([]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -380,6 +375,16 @@ export default function Page() {
     }
   }
 
+  function handleVoiceChat() {
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "system",
+        text: "Voice chat is getting ready.",
+      },
+    ]);
+  }
+
   async function loadAvailability() {
     if (!selectedCareType || !intent?.visit_reason_code) return;
 
@@ -505,8 +510,13 @@ export default function Page() {
                 priority
               />
             </div>
-            <div className="text-xl font-semibold leading-snug text-slate-900">
-              Optum Companion
+            <div className="flex flex-col">
+              <div className="text-xl font-semibold leading-snug text-slate-900">
+                Optum Companion
+              </div>
+              <div className="text-xs text-slate-600">
+                Hi, I’m here to help you find care.
+              </div>
             </div>
           </div>
 
@@ -555,12 +565,21 @@ export default function Page() {
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
               />
               <button
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg text-[#f58220] shadow-sm ring-1 ring-[#f58220]/20 transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50"
+                onClick={handleVoiceChat}
+                disabled={loading}
+                aria-label="Start voice chat"
+                type="button"
+              >
+                🎤
+              </button>
+              <button
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f58220] text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
                 onClick={() => handleSend()}
                 disabled={loading}
                 aria-label="Send message"
               >
-                ➤
+                ↑
               </button>
             </div>
           </div>
