@@ -332,6 +332,30 @@ export default function Page() {
     }
   }
 
+  const loadAvailability = useCallback(async () => {
+    if (!selectedCareType || !intent?.visit_reason_code) return;
+
+    setSelectedSlot(null);
+    setHoldId(null);
+    setHoldExpiresAt(null);
+    setBookingStatus(null);
+    setSelectedAppointmentPreview(null);
+    setLoading(true);
+    try {
+      const resp = await getJSON<AvailabilityResponse>(
+        `/api/availability?provider_type=${selectedCareType}&start_date=${todayISO()}&days=7&mode=${mode}&visit_reason_code=${intent.visit_reason_code}`
+      );
+      setAvailability(resp.slots);
+    } catch (e: unknown) {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", text: getErrorMessage(e) },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [intent?.visit_reason_code, mode, selectedCareType]);
+
   useEffect(() => {
     if (!providerMatches || providerMatches.length === 0) return;
     if (!selectedCareType || !intent?.visit_reason_code) return;
@@ -501,30 +525,6 @@ export default function Page() {
       },
     ]);
   }
-
-  const loadAvailability = useCallback(async () => {
-    if (!selectedCareType || !intent?.visit_reason_code) return;
-
-    setSelectedSlot(null);
-    setHoldId(null);
-    setHoldExpiresAt(null);
-    setBookingStatus(null);
-    setSelectedAppointmentPreview(null);
-    setLoading(true);
-    try {
-      const resp = await getJSON<AvailabilityResponse>(
-        `/api/availability?provider_type=${selectedCareType}&start_date=${todayISO()}&days=7&mode=${mode}&visit_reason_code=${intent.visit_reason_code}`
-      );
-      setAvailability(resp.slots);
-    } catch (e: unknown) {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", text: getErrorMessage(e) },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [intent?.visit_reason_code, mode, selectedCareType]);
 
   async function holdSlot(slot: AvailabilitySlot) {
     if (!intent?.visit_reason_code) return;
