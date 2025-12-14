@@ -158,10 +158,10 @@ export default function Page() {
   }
 
   const quickPrompts = [
-    "I am looking for a PCP who accepts my insurance",
-    "I’m feeling chest tightness",
-    "My child has a sore throat",
-    "Help me find a dermatologist",
+    "Find a primary care provider near me",
+    "Which doctors do virtual visits?",
+    "What’s the earliest available appointment?",
+    "Find a pediatrician accepting new patients",
   ];
 
   const insurancePlans = [
