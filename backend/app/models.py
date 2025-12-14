@@ -11,6 +11,7 @@ class ProviderType(str, Enum):
     urgent_care = "urgent_care"
     dermatology = "dermatology"
     orthopedics = "orthopedics"
+    cardiology = "cardiology"
 
 
 class VisitMode(str, Enum):

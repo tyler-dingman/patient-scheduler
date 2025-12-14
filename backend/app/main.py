@@ -68,6 +68,8 @@ def on_startup():
             Provider(id="prov_4", name="Dr. Ethan Ross", provider_type="orthopedics", location_id="loc_2", accepts_virtual=False),
             Provider(id="prov_5", name="Dr. Elena Garcia", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
             Provider(id="prov_6", name="Dr. Marcus Chen", provider_type="primary_care", location_id="loc_2", accepts_virtual=False),
+            Provider(id="prov_7", name="Dr. Priya Nair", provider_type="cardiology", location_id="loc_1", accepts_virtual=False),
+            Provider(id="prov_8", name="Dr. Samuel Ortiz", provider_type="cardiology", location_id="loc_2", accepts_virtual=True),
         ]
 
         for provider in providers:
@@ -134,6 +136,7 @@ def care_options(visit_reason_code: str, recommended_provider_type: str):
         CareOption(provider_type="primary_care", label="Primary Care (ongoing / general)", suggested=(recommended_provider_type == "primary_care")),
         CareOption(provider_type="dermatology", label="Dermatology (skin)", suggested=(recommended_provider_type == "dermatology")),
         CareOption(provider_type="orthopedics", label="Orthopedics (bones/joints)", suggested=(recommended_provider_type == "orthopedics")),
+        CareOption(provider_type="cardiology", label="Cardiology (heart health)", suggested=(recommended_provider_type == "cardiology")),
     ]
     if visit_reason_code == "GENERIC_TRIAGE":
         for o in options:

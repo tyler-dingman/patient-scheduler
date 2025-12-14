@@ -4,7 +4,13 @@ from datetime import datetime, date
 from typing import Optional, List, Literal, Dict, Any
 from pydantic import BaseModel, Field, EmailStr
 
-ProviderType = Literal["primary_care", "urgent_care", "dermatology", "orthopedics"]
+ProviderType = Literal[
+    "primary_care",
+    "urgent_care",
+    "dermatology",
+    "orthopedics",
+    "cardiology",
+]
 VisitMode = Literal["in_person", "virtual"]
 
 
