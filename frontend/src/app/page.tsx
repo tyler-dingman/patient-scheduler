@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 type Role = "user" | "assistant" | "system";
 
@@ -134,6 +134,8 @@ export default function Page() {
   const [availability, setAvailability] =
     useState<AvailabilitySlot[] | null>(null);
   const [selectedSlot, setSelectedSlot] =
+    useState<AvailabilitySlot | null>(null);
+  const [selectedAppointmentPreview, setSelectedAppointmentPreview] =
     useState<AvailabilitySlot | null>(null);
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
@@ -330,6 +332,13 @@ export default function Page() {
     }
   }
 
+  useEffect(() => {
+    if (!providerMatches || providerMatches.length === 0) return;
+    if (!selectedCareType || !intent?.visit_reason_code) return;
+
+    loadAvailability();
+  }, [intent?.visit_reason_code, loadAvailability, mode, providerMatches, selectedCareType]);
+
   function answerSymptomQuestion(option: string) {
     const current = symptomQuestions[symptomStep];
     if (!current) return;
@@ -493,13 +502,14 @@ export default function Page() {
     ]);
   }
 
-  async function loadAvailability() {
+  const loadAvailability = useCallback(async () => {
     if (!selectedCareType || !intent?.visit_reason_code) return;
 
     setSelectedSlot(null);
     setHoldId(null);
     setHoldExpiresAt(null);
     setBookingStatus(null);
+    setSelectedAppointmentPreview(null);
     setLoading(true);
     try {
       const resp = await getJSON<AvailabilityResponse>(
@@ -514,7 +524,7 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [intent?.visit_reason_code, mode, selectedCareType]);
 
   async function holdSlot(slot: AvailabilitySlot) {
     if (!intent?.visit_reason_code) return;
@@ -673,11 +683,15 @@ export default function Page() {
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                {providerMatches.map((p) => (
-                  <div
-                    key={p.provider_id}
-                    className="group relative overflow-hidden rounded-2xl border border-[#f58220]/15 bg-gradient-to-br from-white via-white to-[#f58220]/5 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                  >
+                {providerMatches.map((p) => {
+                  const providerSlots =
+                    availability?.filter((slot) => slot.provider_id === p.provider_id) ?? [];
+
+                  return (
+                    <div
+                      key={p.provider_id}
+                      className="group relative overflow-hidden rounded-2xl border border-[#f58220]/15 bg-gradient-to-br from-white via-white to-[#f58220]/5 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
                     <div className="flex items-center gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#f58220] to-amber-400 text-sm font-semibold text-white shadow-inner">
                         {providerInitials(p.name)}
@@ -710,23 +724,92 @@ export default function Page() {
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <button
-                        className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/30 transition group-hover:-translate-y-0.5 disabled:opacity-50"
-                        onClick={() => {
-                          setSelectedCareType("primary_care");
-                          loadAvailability();
-                        }}
-                        disabled={loading}
-                      >
-                        See times
-                      </button>
+                    <div className="mt-3 space-y-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                        Appointments
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {providerSlots.slice(0, 3).map((slot) => (
+                          <button
+                            key={`${slot.provider_id}-${slot.start}`}
+                            className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-800 ring-1 ring-[#f58220]/30 transition hover:-translate-y-0.5 hover:bg-[#f58220]/10 disabled:opacity-50"
+                            onClick={() => setSelectedAppointmentPreview(slot)}
+                            disabled={loading}
+                          >
+                            {new Date(slot.start).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </button>
+                        ))}
+                        {providerSlots.length === 0 && (
+                          <span className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-500 ring-1 ring-[#f58220]/20">
+                            Checking live times…
+                          </span>
+                        )}
+                      </div>
                       {p.accepts_virtual && (
-                        <span className="text-[11px] text-slate-500">Offers virtual visits</span>
+                        <div className="text-[11px] text-slate-500">Offers virtual visits</div>
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {selectedAppointmentPreview && (
+            <div className="mt-3 space-y-3 rounded-3xl border border-[#f58220]/25 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                    Appointment overview
+                  </div>
+                  <div className="text-sm text-slate-700">
+                    {selectedAppointmentPreview.provider_name} at {selectedAppointmentPreview.location_name}
+                  </div>
+                </div>
+                <button
+                  className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-500 ring-1 ring-[#f58220]/20 transition hover:bg-[#f58220]/10"
+                  onClick={() => setSelectedAppointmentPreview(null)}
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-3 text-sm text-slate-700">
+                <span className="rounded-full bg-[#f58220]/10 px-3 py-1 font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
+                  {new Date(selectedAppointmentPreview.start).toLocaleString([], {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#f58220]/20">
+                  {selectedAppointmentPreview.mode === "virtual" ? "Virtual" : "In person"}
+                </span>
+                <span className="rounded-full bg-white px-3 py-1 ring-1 ring-[#f58220]/20">
+                  {selectedAppointmentPreview.location_name}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  className="rounded-full bg-gradient-to-r from-[#f58220] to-amber-400 px-4 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+                  onClick={() => holdSlot(selectedAppointmentPreview)}
+                  disabled={loading}
+                >
+                  Confirm & hold time
+                </button>
+                <button
+                  className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#f58220] ring-1 ring-[#f58220]/25 transition hover:-translate-y-0.5 hover:bg-[#f58220]/10"
+                  onClick={() => setSelectedAppointmentPreview(null)}
+                >
+                  Choose another time
+                </button>
               </div>
             </div>
           )}
