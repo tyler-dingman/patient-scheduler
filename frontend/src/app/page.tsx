@@ -890,7 +890,7 @@ export default function Page() {
             {quickPrompts.map((prompt) => (
               <button
                 key={prompt}
-                className="rounded-full border border-[#f58220]/30 bg-[#f58220]/10 px-4 py-2 text-sm font-medium text-[#f58220] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm ring-1 ring-[#f58220]/20 transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
                 onClick={() => handleSend(prompt)}
                 disabled={loading}
               >
