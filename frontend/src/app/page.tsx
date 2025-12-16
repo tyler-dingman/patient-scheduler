@@ -17,8 +17,10 @@ type SearchIntentResponse = {
     | "dermatology"
     | "orthopedics"
     | "cardiology"
+    | "neurology"
     | null;
   confidence?: string | null;
+  follow_up_questions?: string[];
 };
 
 type ProviderType =
@@ -119,6 +121,65 @@ function buildSlots(provider: ProviderSummary): AppointmentSlot[] {
       mode,
     };
   });
+}
+
+function detectUrgency(text: string): "urgent" | "routine" | null {
+  const normalized = text.toLowerCase();
+  if (
+    normalized.includes("urgent") ||
+    normalized.includes("asap") ||
+    normalized.includes("right away") ||
+    normalized.includes("today")
+  ) {
+    return "urgent";
+  }
+
+  if (
+    normalized.includes("non-urgent") ||
+    normalized.includes("not urgent") ||
+    normalized.includes("routine") ||
+    normalized.includes("checkup")
+  ) {
+    return "routine";
+  }
+
+  return null;
+}
+
+function detectModePreference(text: string): "virtual" | "in_person" | null {
+  const normalized = text.toLowerCase();
+  if (normalized.includes("virtual") || normalized.includes("telehealth")) {
+    return "virtual";
+  }
+
+  if (
+    normalized.includes("in person") ||
+    normalized.includes("in-person") ||
+    normalized.includes("clinic")
+  ) {
+    return "in_person";
+  }
+
+  return null;
+}
+
+function detectPatientGroup(text: string): "pediatric" | "adult" | null {
+  const normalized = text.toLowerCase();
+  if (
+    normalized.includes("child") ||
+    normalized.includes("kid") ||
+    normalized.includes("son") ||
+    normalized.includes("daughter") ||
+    normalized.includes("pediatric")
+  ) {
+    return "pediatric";
+  }
+
+  if (normalized.includes("adult")) {
+    return "adult";
+  }
+
+  return null;
 }
 
 export default function Page() {
@@ -659,12 +720,90 @@ export default function Page() {
       return;
     }
 
+    const urgency = detectUrgency(text);
+    const modePreference = detectModePreference(text);
+    const patientGroup = detectPatientGroup(text);
+
     try {
-      await postJSON<SearchIntentResponse>("/api/search-intent", {
+      const intentResp = await postJSON<SearchIntentResponse>("/api/search-intent", {
         session_id: sessionId,
         message: text,
         mode_preference: mode,
       });
+
+      if (intentResp.escalate) {
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            text:
+              intentResp.safety_message ??
+              "For safety, please call 911 or visit the nearest emergency room.",
+          },
+        ]);
+        return;
+      }
+
+      const reasonLabel = intentResp.visit_reason_label ?? "your request";
+      const providerLabel = intentResp.recommended_provider_type
+        ? formatSpecialty(intentResp.recommended_provider_type as ProviderType)
+        : "care";
+
+      const affirmations = [
+        `I can help with ${reasonLabel}.`,
+        intentResp.recommended_provider_type
+          ? `Most patients start with ${providerLabel.toLowerCase()} for this.`
+          : null,
+      ].filter(Boolean);
+
+      const primarySignals = [
+        patientGroup === "pediatric"
+          ? "I'll look for pediatric-friendly options."
+          : null,
+        modePreference === "virtual"
+          ? "I'll focus on virtual visits."
+          : modePreference === "in_person"
+          ? "I'll focus on in-person visits."
+          : null,
+        urgency === "urgent"
+          ? "Sounds urgent—I'll prioritize today or soon."
+          : urgency === "routine"
+          ? "Sounds routine—I'll find the next available times."
+          : null,
+      ].filter(Boolean);
+
+      const schedulingPrompt = wantsNextAvailable
+        ? `I'll pull the earliest available appointments ${inferredLocation}.`
+        : `Want me to show the soonest available appointments ${inferredLocation}?`;
+
+      const followUps: string[] = [];
+      if (!modePreference) {
+        followUps.push("Do you prefer in-person or virtual?");
+      }
+      if (!urgency) {
+        followUps.push("Is this urgent (today/soon) or routine?");
+      }
+      if (!patientGroup) {
+        followUps.push("Is this for an adult or child?");
+      }
+      if (intentResp.follow_up_questions?.length) {
+        followUps.push(...intentResp.follow_up_questions);
+      }
+
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: [...affirmations, ...primarySignals, schedulingPrompt].join(" "),
+        },
+      ]);
+
+      if (followUps.length > 0) {
+        setMessages((m) => [
+          ...m,
+          ...followUps.map((q) => ({ role: "assistant", text: q })),
+        ]);
+      }
     } catch (e: unknown) {
       setMessages((m) => [
         ...m,
