@@ -866,40 +866,41 @@ export default function Page() {
         <div className="flex-1 space-y-5 overflow-y-auto">
           <div className="relative flex flex-1 flex-col overflow-hidden bg-white px-5 pb-5 pt-4 lg:p-7">
             <div className="mb-4 flex items-center gap-4 rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-slate-200">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-[#f58220]/20">
-              <Image
-                src="/optum-o.svg"
-                alt="Optum O logo"
-                width={40}
-                height={40}
-                className="h-10 w-10"
-                priority
-              />
-            </div>
-            <div className="flex flex-col">
-              <div className="text-xl font-semibold leading-snug text-slate-900">
-                Optum Companion
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-[#f58220]/20">
+                <Image
+                  src="/optum-o.svg"
+                  alt="Optum O logo"
+                  width={40}
+                  height={40}
+                  className="h-10 w-10"
+                  priority
+                />
               </div>
-              <div className="text-lg text-slate-600">
-                Hi, I’m here to help you find care.
+              <div className="flex flex-col">
+                <div className="text-xl font-semibold leading-snug text-slate-900">
+                  Optum Companion
+                </div>
+                <div className="text-lg text-slate-600">
+                  Hi, I’m here to help you find care.
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="mt-1 flex flex-wrap gap-2">
-            {quickPrompts.map((prompt) => (
-              <button
-                key={prompt}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
-                onClick={() => handleSend(prompt)}
-                disabled={loading}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {quickPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
+                  onClick={() => handleSend(prompt)}
+                  disabled={loading}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
 
-          <div className="flex-1" />
+            <div className="flex-1" />
+          </div>
 
         </div>
 
