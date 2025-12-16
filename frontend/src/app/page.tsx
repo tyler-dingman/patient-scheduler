@@ -1260,7 +1260,7 @@ export default function Page() {
                 ).map((p) => (
                   <button
                     key={p.provider_id}
-                    className="flex items-center gap-2 rounded-full border border-[#f58220]/30 bg-white px-3 py-2 text-sm font-semibold text-[#f58220] shadow-sm transition hover:-translate-y-0.5 hover:border-[#f58220] hover:shadow-md"
+                    className="flex items-center gap-2 rounded-full border border-[#f58220]/20 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm ring-1 ring-[#f58220]/20 transition hover:-translate-y-0.5 hover:border-[#f58220]/40 hover:shadow-md"
                     onClick={() => {
                       setInput(p.name);
                       setSearchSuggestions(null);
@@ -1269,7 +1269,7 @@ export default function Page() {
                     }}
                     disabled={loading}
                   >
-                    <span className="rounded-full bg-[#f58220]/10 px-2 py-1 text-xs text-[#f58220]">
+                    <span className="rounded-full bg-[#f58220]/10 px-2 py-1 text-xs font-medium text-slate-800">
                       {p.provider_type.replace("_", " ")}
                     </span>
                     {p.name}
