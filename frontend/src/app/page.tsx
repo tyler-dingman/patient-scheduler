@@ -1245,29 +1245,37 @@ export default function Page() {
                 <span className="text-lg">🔍</span>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(searchSuggestions.providers.length > 0
-                  ? searchSuggestions.providers
-                  : searchSuggestions.suggestions
-                ).map((p) => (
-                  <button
-                    key={p.provider_id}
-                    className="flex items-center gap-2 rounded-full border border-[#f58220]/20 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm ring-1 ring-[#f58220]/20 transition hover:-translate-y-0.5 hover:border-[#f58220]/40 hover:shadow-md"
-                    onClick={() => {
-                      setInput(p.name);
-                      setSearchSuggestions(null);
-                      setLastSuggestionQuery("");
-                      handleSend(p.name);
-                    }}
-                    disabled={loading}
-                  >
-                    <span className="rounded-full bg-[#f58220]/10 px-2 py-1 text-xs font-medium text-slate-800">
-                      {p.provider_type.replace("_", " ")}
-                    </span>
-                    {p.name}
-                  </button>
-                ))}
-              </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(searchSuggestions.providers.length > 0
+                    ? searchSuggestions.providers
+                    : searchSuggestions.suggestions
+                  )
+                    .filter((p) => p.name?.trim())
+                    .map((p) => {
+                      const typeLabel = p.provider_type?.replace("_", " ");
+
+                      return (
+                        <button
+                          key={p.provider_id}
+                          className="flex items-center gap-2 rounded-full border border-[#f58220]/20 bg-white/80 px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm ring-1 ring-[#f58220]/20 transition hover:-translate-y-0.5 hover:border-[#f58220]/40 hover:shadow-md"
+                          onClick={() => {
+                            setInput(p.name);
+                            setSearchSuggestions(null);
+                            setLastSuggestionQuery("");
+                            handleSend(p.name);
+                          }}
+                          disabled={loading}
+                        >
+                          {typeLabel ? (
+                            <span className="rounded-full bg-[#f58220]/10 px-2 py-1 text-xs font-medium text-slate-800">
+                              {typeLabel}
+                            </span>
+                          ) : null}
+                          <span className="text-sm font-semibold text-slate-800">{p.name}</span>
+                        </button>
+                      );
+                    })}
+                </div>
             </div>
           )}
 
