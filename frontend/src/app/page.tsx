@@ -68,7 +68,8 @@ type Msg = {
     | "text"
     | "providers"
     | "appointment_overview"
-    | "insurance_filter";
+    | "insurance_filter"
+    | "success";
 };
 
 const API_BASE =
@@ -622,6 +623,7 @@ export default function Page() {
         text: `Your ${slot.mode === "virtual" ? "virtual" : "in-person"} visit with ${
           provider.name
         } is set for ${slot.label}. I’ll share confirmation details shortly.`,
+        kind: "success",
       },
     ]);
 
@@ -1141,17 +1143,27 @@ export default function Page() {
                     key={`message-${i}`}
                     className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                   >
-                    <div
-                      className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow transition ${
-                        m.role === "user"
-                          ? "rounded-br-sm bg-[#f58220] text-white"
-                          : m.role === "system"
-                          ? "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
-                          : "bg-white text-slate-800 ring-1 ring-[#f58220]/20"
-                      }`}
-                    >
-                      {m.text}
-                    </div>
+                    {m.kind === "success" ? (
+                      <div className="flex max-w-[82%] items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-sm ring-1 ring-emerald-100">
+                        <span className="mt-0.5 text-lg">✅</span>
+                        <div className="space-y-1">
+                          <div className="text-sm font-semibold text-emerald-900">Appointment set</div>
+                          <div>{m.text}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm shadow transition ${
+                          m.role === "user"
+                            ? "rounded-br-sm bg-[#f58220] text-white"
+                            : m.role === "system"
+                            ? "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
+                            : "bg-white text-slate-800 ring-1 ring-[#f58220]/20"
+                        }`}
+                      >
+                        {m.text}
+                      </div>
+                    )}
                   </div>
                 );
               })}
