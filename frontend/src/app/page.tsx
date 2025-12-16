@@ -42,6 +42,10 @@ type ProviderSummary = {
 };
 
 type ProvidersResponse = { providers: ProviderSummary[] };
+type ProviderSearchResponse = {
+  providers: ProviderSummary[];
+  suggestions: ProviderSummary[];
+};
 
 type AppointmentSlot = {
   iso: string;
@@ -52,6 +56,7 @@ type AppointmentSlot = {
 type ProviderDiscoveryContext = {
   providerType: ProviderType;
   locationLabel: string;
+  title?: string;
 };
 
 type Msg = {
@@ -136,6 +141,9 @@ export default function Page() {
   const [providerDiscoveryContext, setProviderDiscoveryContext] = useState<
     ProviderDiscoveryContext | null
   >(null);
+  const [searchSuggestions, setSearchSuggestions] =
+    useState<ProviderSearchResponse | null>(null);
+  const [lastSuggestionQuery, setLastSuggestionQuery] = useState<string>("");
 
   const [insuranceFlowActive, setInsuranceFlowActive] = useState(false);
   const [insuranceFilter, setInsuranceFilter] = useState("");
@@ -184,6 +192,39 @@ export default function Page() {
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   }
+
+  useEffect(() => {
+    const query = input.trim();
+
+    if (query.length < 3 || !looksLikeProviderName(query)) {
+      setSearchSuggestions(null);
+      setLastSuggestionQuery("");
+      return;
+    }
+
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        const resp = await getJSON<ProviderSearchResponse>(
+          `/api/provider-search?q=${encodeURIComponent(query)}&limit=3&mode=${mode}`
+        );
+        if (cancelled) return;
+        if (query !== input.trim()) return;
+        setSearchSuggestions(resp);
+        setLastSuggestionQuery(query);
+      } catch {
+        if (!cancelled) {
+          setSearchSuggestions(null);
+        }
+      }
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [input, mode]);
 
   const quickPrompts = [
     "Find a primary care provider near me",
@@ -252,6 +293,8 @@ export default function Page() {
     setProviderMatches(null);
     setProviderDiscoveryMode("idle");
     setProviderDiscoveryContext(null);
+    setSearchSuggestions(null);
+    setLastSuggestionQuery("");
   }
 
   function isInsuranceQuery(text: string) {
@@ -340,6 +383,27 @@ export default function Page() {
     return null;
   }
 
+  function looksLikeProviderName(text: string) {
+    const normalized = text.trim();
+    if (normalized.length < 3 || normalized.length > 120) return false;
+
+    const words = normalized.split(/\s+/);
+    if (words.length === 0 || words.length > 3) return false;
+
+    const isNameWord = (word: string) => /^[A-Za-z][A-Za-z.'-]*$/.test(word);
+
+    if (words.length === 3) {
+      if (words[0].toLowerCase() !== "dr") return false;
+      return isNameWord(words[1]) && isNameWord(words[2]);
+    }
+
+    if (words.length === 2) {
+      return words.every(isNameWord);
+    }
+
+    return isNameWord(words[0]);
+  }
+
   function isNextAvailableRequest(text: string) {
     const normalized = text.toLowerCase();
     return (
@@ -391,6 +455,69 @@ export default function Page() {
           ...m,
           { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
         ]);
+      } finally {
+        setLoading(false);
+        setProviderDiscoveryMode("idle");
+      }
+    },
+    [mode]
+  );
+
+  const fetchProvidersByName = useCallback(
+    async (query: string) => {
+      setProviderDiscoveryMode("finding");
+      setProviderMatches(null);
+
+      try {
+        const resp = await getJSON<ProviderSearchResponse>(
+          `/api/provider-search?q=${encodeURIComponent(query)}&limit=4&mode=${mode}`
+        );
+
+        const matches =
+          resp.providers.length > 0 ? resp.providers : resp.suggestions;
+
+        if (matches.length === 0) {
+          setMessages((m) => [
+            ...m,
+            {
+              role: "assistant",
+              text: `I couldn't find any providers matching "${query}". Try another name or add more details.`,
+            },
+          ]);
+          return true;
+        }
+
+        const title =
+          resp.providers.length > 0 ? "Matching providers" : "Suggested providers";
+        const label =
+          resp.providers.length > 0
+            ? `for "${query}"`
+            : `for names similar to "${query}"`;
+
+        setProviderMatches(matches);
+        setProviderDiscoveryContext({
+          providerType: matches[0]?.provider_type ?? "primary_care",
+          locationLabel: label,
+          title,
+        });
+
+        const intro =
+          resp.providers.length > 0
+            ? `Here are providers matching "${query}".`
+            : `No exact match for "${query}" — showing similar provider names.`;
+
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", text: intro, kind: "text" },
+          { role: "assistant", text: "", kind: "providers" },
+        ]);
+        return true;
+      } catch (e: unknown) {
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
+        ]);
+        return false;
       } finally {
         setLoading(false);
         setProviderDiscoveryMode("idle");
@@ -498,6 +625,11 @@ export default function Page() {
       return;
     }
 
+    if (looksLikeProviderName(text)) {
+      const handled = await fetchProvidersByName(text);
+      if (handled) return;
+    }
+
     const providerIntent = detectProviderSearch(text);
     const wantsNextAvailable = isNextAvailableRequest(text);
     const inferredLocation =
@@ -584,7 +716,8 @@ export default function Page() {
   const providerLocationLabel =
     providerDiscoveryContext?.locationLabel ?? "near you";
   const providerSpecialtyLabel = providerDiscoveryContext
-    ? formatSpecialty(providerDiscoveryContext.providerType)
+    ? providerDiscoveryContext.title ??
+      formatSpecialty(providerDiscoveryContext.providerType)
     : "Providers";
 
   return (
@@ -961,6 +1094,51 @@ export default function Page() {
         </div>
 
         </div>
+
+        {searchSuggestions &&
+          lastSuggestionQuery &&
+          (searchSuggestions.providers.length > 0 ||
+            searchSuggestions.suggestions.length > 0) && (
+            <div className="mx-5 mb-2 rounded-2xl border border-[#f58220]/20 bg-white/95 p-4 shadow-sm ring-1 ring-[#f58220]/15 lg:mx-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
+                    Suggested search
+                  </div>
+                  <div className="text-sm text-slate-700">
+                    {searchSuggestions.providers.length > 0
+                      ? `Quick matches for "${lastSuggestionQuery}".`
+                      : `Did you mean one of these names related to "${lastSuggestionQuery}"?`}
+                  </div>
+                </div>
+                <span className="text-lg">🔍</span>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(searchSuggestions.providers.length > 0
+                  ? searchSuggestions.providers
+                  : searchSuggestions.suggestions
+                ).map((p) => (
+                  <button
+                    key={p.provider_id}
+                    className="flex items-center gap-2 rounded-full border border-[#f58220]/30 bg-white px-3 py-2 text-sm font-semibold text-[#f58220] shadow-sm transition hover:-translate-y-0.5 hover:border-[#f58220] hover:shadow-md"
+                    onClick={() => {
+                      setInput(p.name);
+                      setSearchSuggestions(null);
+                      setLastSuggestionQuery("");
+                      handleSend(p.name);
+                    }}
+                    disabled={loading}
+                  >
+                    <span className="rounded-full bg-[#f58220]/10 px-2 py-1 text-xs text-[#f58220]">
+                      {p.provider_type.replace("_", " ")}
+                    </span>
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-[#f58220]/20 bg-white/95 px-5 py-4 lg:px-6">
           <input

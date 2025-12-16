@@ -59,6 +59,11 @@ class ProvidersResponse(BaseModel):
     providers: List[ProviderSummary]
 
 
+class ProviderSearchResponse(BaseModel):
+    providers: List[ProviderSummary]
+    suggestions: List[ProviderSummary] = Field(default_factory=list)
+
+
 class AvailabilityResponseSlot(BaseModel):
     provider_id: str
     provider_name: str
