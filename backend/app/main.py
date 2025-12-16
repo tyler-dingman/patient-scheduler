@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+import difflib
 import uuid
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -16,6 +17,7 @@ from .schemas import (
     CreateHoldRequest, CreateHoldResponse,
     BookAppointmentRequest, BookAppointmentResponse,
     ProviderSummary, ProvidersResponse,
+    ProviderSearchResponse,
 )
 from .services.triage import detect_red_flags
 from .services.intent import map_to_intent
@@ -72,6 +74,9 @@ def on_startup():
             Provider(id="prov_8", name="Dr. Samuel Ortiz", provider_type="cardiology", location_id="loc_2", accepts_virtual=True),
             Provider(id="prov_9", name="Dr. Hannah Schultz", provider_type="neurology", location_id="loc_1", accepts_virtual=True),
             Provider(id="prov_10", name="Dr. Amir Rahman", provider_type="neurology", location_id="loc_2", accepts_virtual=False),
+            Provider(id="prov_11", name="Dr. John Smith", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
+            Provider(id="prov_12", name="Dr. Alicia Johnson", provider_type="primary_care", location_id="loc_2", accepts_virtual=True),
+            Provider(id="prov_13", name="Dr. Marcus Johnson", provider_type="orthopedics", location_id="loc_2", accepts_virtual=False),
         ]
 
         for provider in providers:
@@ -147,28 +152,17 @@ def care_options(visit_reason_code: str, recommended_provider_type: str):
     return CareOptionsResponse(options=options)
 
 
-@app.get("/api/providers", response_model=ProvidersResponse)
-def provider_directory(
-    provider_type: str | None = None,
-    limit: int = 5,
-    mode: str | None = None,
-    start_date: date | None = None,
-    days: int = 14,
-    session: Session = Depends(get_session),
-):
-    start = start_date or date.today()
-
-    query = select(Provider)
-    if provider_type:
-        query = query.where(Provider.provider_type == provider_type)
-
-    providers = session.exec(query).all()
-    providers.sort(key=lambda p: p.name)
-    providers = providers[:limit]
-
+def summarize_providers(
+    providers: list[Provider],
+    session: Session,
+    mode: str | None,
+    start: date,
+    days: int,
+) -> list[ProviderSummary]:
     if not providers:
-        return ProvidersResponse(providers=[])
+        return []
 
+    providers = sorted(providers, key=lambda p: p.name)
     locs = {l.id: l for l in session.exec(select(Location)).all()}
     booked_rows = session.exec(
         select(Appointment).where(
@@ -216,7 +210,85 @@ def provider_directory(
             )
         )
 
+    return summaries
+
+
+@app.get("/api/providers", response_model=ProvidersResponse)
+def provider_directory(
+    provider_type: str | None = None,
+    limit: int = 5,
+    mode: str | None = None,
+    start_date: date | None = None,
+    days: int = 14,
+    session: Session = Depends(get_session),
+):
+    start = start_date or date.today()
+
+    query = select(Provider)
+    if provider_type:
+        query = query.where(Provider.provider_type == provider_type)
+
+    providers = session.exec(query).all()
+    providers = providers[:limit]
+
+    summaries = summarize_providers(providers, session, mode, start, days)
+
     return ProvidersResponse(providers=summaries)
+
+
+@app.get("/api/provider-search", response_model=ProviderSearchResponse)
+def provider_search(
+    q: str,
+    provider_type: str | None = None,
+    limit: int = 5,
+    mode: str | None = None,
+    start_date: date | None = None,
+    days: int = 14,
+    session: Session = Depends(get_session),
+):
+    start = start_date or date.today()
+    normalized_query = q.strip().lower()
+
+    if not normalized_query:
+        return ProviderSearchResponse(providers=[], suggestions=[])
+
+    query = select(Provider)
+    if provider_type:
+        query = query.where(Provider.provider_type == provider_type)
+
+    providers = session.exec(query).all()
+
+    direct_matches = [
+        p for p in providers if normalized_query in p.name.lower()
+    ][:limit]
+
+    if len(direct_matches) < limit:
+        last_name_map = {p.id: p.name.split()[-1].lower() for p in providers}
+        # Prefer prefix matches on last name for typeahead behavior
+        last_name_candidates = [
+            p for p in providers
+            if last_name_map[p.id].startswith(normalized_query)
+        ]
+
+        if not last_name_candidates:
+            close_last_names = set(
+                difflib.get_close_matches(
+                    normalized_query, list(last_name_map.values()), n=5, cutoff=0.6
+                )
+            )
+            last_name_candidates = [
+                p for p in providers if last_name_map[p.id] in close_last_names
+            ]
+
+        suggestion_pool = [p for p in last_name_candidates if p not in direct_matches]
+        suggestions = suggestion_pool[: max(0, limit - len(direct_matches))]
+    else:
+        suggestions = []
+
+    summaries = summarize_providers(direct_matches, session, mode, start, days)
+    suggestion_summaries = summarize_providers(suggestions, session, mode, start, days)
+
+    return ProviderSearchResponse(providers=summaries, suggestions=suggestion_summaries)
 
 
 @app.get("/api/availability", response_model=AvailabilityResponse)
