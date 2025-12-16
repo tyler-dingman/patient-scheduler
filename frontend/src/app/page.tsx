@@ -878,7 +878,7 @@ export default function Page() {
             </div>
             <div className="flex flex-col">
               <div className="text-xl font-semibold leading-snug text-slate-900">
-                Optum Companion
+                Optum Assistant
               </div>
               <div className="text-lg text-slate-600">
                 Hi, I’m here to help you find care.
@@ -1282,7 +1282,7 @@ export default function Page() {
         <div className="sticky bottom-0 flex items-center gap-3 border-t border-[#f58220]/20 bg-white/95 px-5 py-4 lg:px-6">
           <input
             className="flex-1 rounded-full border border-[#f58220]/30 bg-[#f58220]/5 px-4 py-3 text-sm placeholder:text-slate-400 shadow-sm focus:outline-none"
-            placeholder="Ask Optum Companion"
+            placeholder="Ask Optum Assistant"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
