@@ -915,10 +915,11 @@ export default function Page() {
             </div>
           )}
 
-          <div
-            className="flex-1 space-y-3 overflow-auto pr-1"
-            ref={messagesContainerRef}
-          >
+          <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-[#f58220]/25 bg-white/90 p-4 shadow-inner">
+            <div
+              className="flex-1 space-y-3 overflow-auto pr-1"
+              ref={messagesContainerRef}
+            >
               {messages.map((m, i) => {
                 if (m.kind === "providers") {
                   if (!providerMatches || providerMatches.length === 0) return null;
