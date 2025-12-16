@@ -207,7 +207,6 @@ export default function Page() {
   const [lastSuggestionQuery, setLastSuggestionQuery] = useState<string>("");
 
   const [insuranceFlowActive, setInsuranceFlowActive] = useState(false);
-  const [insuranceFilter, setInsuranceFilter] = useState("");
   const [selectedInsurance, setSelectedInsurance] = useState<string | null>(
     null
   );
@@ -344,8 +343,6 @@ export default function Page() {
 
   function resetFlows() {
     setInsuranceFlowActive(false);
-    setInsuranceFilter("");
-    setSelectedInsurance(null);
     setSymptomFlowActive(false);
     setSymptomStep(0);
     setSymptomResponses({});
@@ -600,23 +597,13 @@ export default function Page() {
   function handleInsuranceSelect(planName: string) {
     setSelectedInsurance(planName);
 
-    const providerType = providerDiscoveryContext?.providerType ?? "primary_care";
-    const locationLabel = providerDiscoveryContext?.locationLabel ?? "near you";
-
     setMessages((m) => [
       ...m,
       {
         role: "assistant",
-        text: `Great — showing ${formatSpecialty(providerType).toLowerCase()} providers ${locationLabel} who accept ${planName}.`,
+        text: `Great — I'll use ${planName}. Now that I know your insurance, what type of care are you looking for?`,
       },
     ]);
-
-    fetchProvidersByType(
-      providerType,
-      planName,
-      locationLabel,
-      "insurance_filter"
-    );
   }
 
   function confirmSelectedAppointment() {
@@ -675,12 +662,13 @@ export default function Page() {
 
     if (isInsuranceQuery(text)) {
       setLoading(false);
+      setSelectedInsurance(null);
       setInsuranceFlowActive(true);
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
-          text: "I can help find doctors who accept your insurance. Choose a popular plan below or start typing your carrier.",
+          text: "I can help find doctors who accept your insurance. Pick your plan from the list below to continue.",
         },
       ]);
       return;
@@ -823,10 +811,6 @@ export default function Page() {
       },
     ]);
   }
-
-  const filteredInsurancePlans = insurancePlans.filter((plan) =>
-    plan.name.toLowerCase().includes(insuranceFilter.toLowerCase())
-  );
 
   const symptomComplete = symptomStep >= symptomQuestions.length;
   const geoStatusLabel =
@@ -1121,21 +1105,12 @@ export default function Page() {
               </div>
 
               <div className="flex flex-col gap-3 rounded-2xl bg-[#f58220]/10 p-3">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
                   Popular carriers
-                  <div className="mt-2 flex items-center gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-[#f58220]/20">
-                    <span className="text-lg">🔎</span>
-                    <input
-                      className="w-full bg-transparent text-sm outline-none"
-                      placeholder="Search for insurance"
-                      value={insuranceFilter}
-                      onChange={(e) => setInsuranceFilter(e.target.value)}
-                    />
-                  </div>
-                </label>
+                </div>
 
                 <div className="space-y-2">
-                  {filteredInsurancePlans.map((plan) => {
+                  {insurancePlans.map((plan) => {
                     const isSelected = plan.name === selectedInsurance;
                     return (
                       <button
@@ -1166,7 +1141,7 @@ export default function Page() {
                 </div>
 
                 <div className="text-xs text-slate-500">
-                  Looking for something else? Type another plan name and I’ll match it.
+                  Select your plan so I can tailor the care options.
                 </div>
               </div>
             </div>
