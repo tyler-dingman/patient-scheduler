@@ -146,6 +146,27 @@ function providerInitials(name: string) {
     .toUpperCase();
 }
 
+function getProviderDisplayName(provider: ProviderSummary) {
+  if (provider.provider_type === "urgent_care" && provider.location_name) {
+    return provider.location_name;
+  }
+
+  return provider.name;
+}
+
+function getUrgentCareWaitTime(provider: ProviderSummary) {
+  if (provider.provider_type !== "urgent_care" || !provider.next_available_start) {
+    return null;
+  }
+
+  const waitMinutes = Math.max(
+    0,
+    Math.round((new Date(provider.next_available_start).getTime() - Date.now()) / 60000)
+  );
+
+  return `${waitMinutes} Minute Wait Time`;
+}
+
 function formatSpecialty(type: ProviderType) {
   switch (type) {
     case "primary_care":
@@ -755,13 +776,14 @@ export default function Page() {
     if (!selectedAppointment) return;
 
     const { provider, slot } = selectedAppointment;
+    const displayName = getProviderDisplayName(provider);
 
     setMessages((m) => [
       ...m,
       {
         role: "assistant",
         text: `Your ${slot.mode === "virtual" ? "virtual" : "in-person"} visit with ${
-          provider.name
+          displayName
         } is set for ${slot.label}. I’ll share confirmation details shortly.`,
         kind: "success",
       },
@@ -1152,6 +1174,8 @@ export default function Page() {
                       <div className="grid gap-3 md:grid-cols-2">
                         {providerMatches.slice(0, 4).map((p) => {
                           const slots = buildSlots(p);
+                          const displayName = getProviderDisplayName(p);
+                          const waitTimeLabel = getUrgentCareWaitTime(p);
                           return (
                             <div
                               key={p.provider_id}
@@ -1159,16 +1183,19 @@ export default function Page() {
                             >
                               <div className="flex items-center gap-3">
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#f58220] to-amber-400 text-sm font-semibold text-white shadow-inner">
-                                  {providerInitials(p.name)}
+                                  {providerInitials(displayName ?? p.name)}
                                 </div>
                                 <div className="flex-1">
-                                  <div className="font-semibold text-slate-900">{p.name}</div>
+                                  <div className="font-semibold text-slate-900">{displayName}</div>
                                   <div className="text-xs text-slate-600">
                                     {formatSpecialty(p.provider_type)} • {p.location_city}, {p.location_state}
                                   </div>
                                   <div className="text-[11px] uppercase tracking-wide text-[#f58220]">{p.location_name}</div>
                                 </div>
-                                <div className="text-right text-xs text-slate-600">
+                                <div className="text-right text-xs text-slate-600 space-y-1">
+                                  {waitTimeLabel && (
+                                    <div className="text-[11px] font-semibold text-emerald-700">{waitTimeLabel}</div>
+                                  )}
                                   {p.next_available_start ? (
                                     <div className="space-y-1 text-right">
                                       <div className="text-[11px] font-semibold uppercase text-[#f58220]">Next</div>
@@ -1233,6 +1260,8 @@ export default function Page() {
                 if (m.kind === "appointment_overview") {
                   if (!selectedAppointment) return null;
 
+                  const overviewDisplayName = getProviderDisplayName(selectedAppointment.provider);
+
                   return (
                     <div
                       key={`appointment-${i}`}
@@ -1253,7 +1282,7 @@ export default function Page() {
                       </div>
 
                       <div className="space-y-1 rounded-2xl bg-gradient-to-r from-white to-[#f58220]/10 p-3 ring-1 ring-[#f58220]/15">
-                        <div className="text-sm font-semibold text-slate-900">{selectedAppointment.provider.name}</div>
+                        <div className="text-sm font-semibold text-slate-900">{overviewDisplayName}</div>
                         <div className="text-xs text-slate-600">
                           {formatSpecialty(selectedAppointment.provider.provider_type)} • {selectedAppointment.provider.location_city}, {" "}
                           {selectedAppointment.provider.location_state}
