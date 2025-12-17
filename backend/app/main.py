@@ -294,12 +294,14 @@ def provider_search(
 @app.get("/api/availability", response_model=AvailabilityResponse)
 def availability(
     provider_type: str,
-    start_date: date,
+    start_date: date | None = None,
     days: int = 7,
     mode: str = "in_person",
     visit_reason_code: str = "GENERIC_TRIAGE",
     session: Session = Depends(get_session),
 ):
+    start = start_date or date.today()
+
     providers = session.exec(
         select(Provider).where(Provider.provider_type == provider_type)
     ).all()
@@ -310,7 +312,7 @@ def availability(
 
     provider_ids = [p.id for p in providers]
 
-    slots = adapter.generate_availability(provider_ids, start_date, days, mode)  # type: ignore
+    slots = adapter.generate_availability(provider_ids, start, days, mode)  # type: ignore
 
     booked = session.exec(
         select(Appointment).where(
@@ -347,6 +349,8 @@ def availability(
                 mode=s.mode,
             )
         )
+
+    out.sort(key=lambda s: (s.start, s.provider_id))
 
     return AvailabilityResponse(slots=out)
 
