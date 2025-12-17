@@ -438,6 +438,12 @@ export default function Page() {
     { name: "Medicaid", shorthand: "Medicaid", color: "#0f766e" },
   ];
 
+  const insuranceCareSuggestions = [
+    "Primary Care",
+    "Urgent Care",
+    "Pediatrics",
+  ];
+
   const symptomQuestions = [
     {
       id: "duration",
@@ -738,6 +744,7 @@ export default function Page() {
       {
         role: "assistant",
         text: `Great — I'll use ${planName}. Now that I know your insurance, what type of care are you looking for?`,
+        options: insuranceCareSuggestions,
       },
     ]);
   }
