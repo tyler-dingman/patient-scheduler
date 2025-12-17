@@ -158,7 +158,7 @@ type Msg = {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
-const REQUEST_TIMEOUT_MS = 12000;
+const REQUEST_TIMEOUT_MS = 25000;
 
 async function fetchWithTimeout<T>(
   path: string,
