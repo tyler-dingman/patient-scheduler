@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
 from .db import create_db_and_tables, get_session, engine
-from .models import Provider, Location, Appointment
+from .models import Appointment, Location, Provider, SchedulingAccess
 from .schemas import (
     SearchIntentRequest, SearchIntentResponse,
     CareOptionsResponse, CareOption,
@@ -64,19 +64,110 @@ def on_startup():
             s.commit()
 
         providers = [
-            Provider(id="prov_1", name="Dr. Maya Patel", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
-            Provider(id="prov_2", name="Dr. James Lee", provider_type="urgent_care", location_id="loc_1", accepts_virtual=True),
-            Provider(id="prov_3", name="Dr. Sofia Kim", provider_type="dermatology", location_id="loc_2", accepts_virtual=True),
-            Provider(id="prov_4", name="Dr. Ethan Ross", provider_type="orthopedics", location_id="loc_2", accepts_virtual=False),
-            Provider(id="prov_5", name="Dr. Elena Garcia", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
-            Provider(id="prov_6", name="Dr. Marcus Chen", provider_type="primary_care", location_id="loc_2", accepts_virtual=False),
-            Provider(id="prov_7", name="Dr. Priya Nair", provider_type="cardiology", location_id="loc_1", accepts_virtual=False),
-            Provider(id="prov_8", name="Dr. Samuel Ortiz", provider_type="cardiology", location_id="loc_2", accepts_virtual=True),
-            Provider(id="prov_9", name="Dr. Hannah Schultz", provider_type="neurology", location_id="loc_1", accepts_virtual=True),
-            Provider(id="prov_10", name="Dr. Amir Rahman", provider_type="neurology", location_id="loc_2", accepts_virtual=False),
-            Provider(id="prov_11", name="Dr. John Smith", provider_type="primary_care", location_id="loc_1", accepts_virtual=True),
-            Provider(id="prov_12", name="Dr. Alicia Johnson", provider_type="primary_care", location_id="loc_2", accepts_virtual=True),
-            Provider(id="prov_13", name="Dr. Marcus Johnson", provider_type="orthopedics", location_id="loc_2", accepts_virtual=False),
+            Provider(
+                id="prov_1",
+                name="Dr. Maya Patel",
+                provider_type="primary_care",
+                location_id="loc_1",
+                accepts_virtual=True,
+                scheduling_access=SchedulingAccess.open_scheduling,
+            ),
+            Provider(
+                id="prov_2",
+                name="Dr. James Lee",
+                provider_type="urgent_care",
+                location_id="loc_1",
+                accepts_virtual=True,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_3",
+                name="Dr. Sofia Kim",
+                provider_type="dermatology",
+                location_id="loc_2",
+                accepts_virtual=True,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_4",
+                name="Dr. Ethan Ross",
+                provider_type="orthopedics",
+                location_id="loc_2",
+                accepts_virtual=False,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_5",
+                name="Dr. Elena Garcia",
+                provider_type="primary_care",
+                location_id="loc_1",
+                accepts_virtual=True,
+                scheduling_access=SchedulingAccess.open_scheduling,
+            ),
+            Provider(
+                id="prov_6",
+                name="Dr. Marcus Chen",
+                provider_type="primary_care",
+                location_id="loc_2",
+                accepts_virtual=False,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_7",
+                name="Dr. Priya Nair",
+                provider_type="cardiology",
+                location_id="loc_1",
+                accepts_virtual=False,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_8",
+                name="Dr. Samuel Ortiz",
+                provider_type="cardiology",
+                location_id="loc_2",
+                accepts_virtual=True,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_9",
+                name="Dr. Hannah Schultz",
+                provider_type="neurology",
+                location_id="loc_1",
+                accepts_virtual=True,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_10",
+                name="Dr. Amir Rahman",
+                provider_type="neurology",
+                location_id="loc_2",
+                accepts_virtual=False,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_11",
+                name="Dr. John Smith",
+                provider_type="primary_care",
+                location_id="loc_1",
+                accepts_virtual=True,
+                scheduling_access=SchedulingAccess.open_scheduling,
+            ),
+            Provider(
+                id="prov_12",
+                name="Dr. Alicia Johnson",
+                provider_type="primary_care",
+                location_id="loc_2",
+                accepts_virtual=True,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
+            Provider(
+                id="prov_13",
+                name="Dr. Marcus Johnson",
+                provider_type="orthopedics",
+                location_id="loc_2",
+                accepts_virtual=False,
+                scheduling_access=SchedulingAccess.direct_scheduling,
+            ),
         ]
 
         for provider in providers:
@@ -162,7 +253,6 @@ def summarize_providers(
     if not providers:
         return []
 
-    providers = sorted(providers, key=lambda p: p.name)
     locs = {l.id: l for l in session.exec(select(Location)).all()}
     booked_rows = session.exec(
         select(Appointment).where(
@@ -172,7 +262,7 @@ def summarize_providers(
     ).all()
     booked = {(b.provider_id, b.start, b.mode) for b in booked_rows}
 
-    summaries: list[ProviderSummary] = []
+    summaries: list[tuple[datetime, ProviderSummary]] = []
     for p in providers:
         loc = locs.get(p.location_id)
         if not loc:
@@ -195,22 +285,35 @@ def summarize_providers(
                 candidates.append(s)
 
         next_slot = min(candidates, key=lambda s: s.start) if candidates else None
+        availability_label = None
+        if next_slot:
+            readable_time = next_slot.start.strftime("%a %I:%M %p").lstrip("0")
+            availability_label = f"Next: {readable_time} ({'Virtual' if next_slot.mode == 'virtual' else 'In person'})"
+
+        next_slot_time = next_slot.start if next_slot else datetime.max
 
         summaries.append(
-            ProviderSummary(
-                provider_id=p.id,
-                name=p.name,
-                provider_type=p.provider_type,
-                accepts_virtual=p.accepts_virtual,
-                location_name=loc.name,
-                location_city=loc.city,
-                location_state=loc.state,
-                next_available_start=next_slot.start if next_slot else None,
-                next_available_mode=next_slot.mode if next_slot else None,
+            (
+                next_slot_time,
+                ProviderSummary(
+                    provider_id=p.id,
+                    name=p.name,
+                    provider_type=p.provider_type,
+                    accepts_virtual=p.accepts_virtual,
+                    scheduling_access=p.scheduling_access,
+                    location_name=loc.name,
+                    location_city=loc.city,
+                    location_state=loc.state,
+                    next_available_start=next_slot.start if next_slot else None,
+                    next_available_mode=next_slot.mode if next_slot else None,
+                    availability_label=availability_label,
+                ),
             )
         )
 
-    return summaries
+    summaries.sort(key=lambda item: (item[0], item[1].name))
+
+    return [s for _, s in summaries]
 
 
 @app.get("/api/providers", response_model=ProvidersResponse)
