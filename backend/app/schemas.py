@@ -13,6 +13,7 @@ ProviderType = Literal[
     "neurology",
 ]
 VisitMode = Literal["in_person", "virtual"]
+SchedulingChannel = Literal["open_scheduling", "direct_scheduling"]
 
 
 class SearchIntentRequest(BaseModel):
@@ -53,6 +54,7 @@ class ProviderSummary(BaseModel):
     location_state: str
     next_available_start: Optional[datetime] = None
     next_available_mode: Optional[VisitMode] = None
+    scheduling_channel: SchedulingChannel
 
 
 class ProvidersResponse(BaseModel):

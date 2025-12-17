@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
 from .db import create_db_and_tables, get_session, engine
-from .models import Provider, Location, Appointment
+from .models import Provider, Location, Appointment, ProviderType
 from .schemas import (
     SearchIntentRequest, SearchIntentResponse,
     CareOptionsResponse, CareOption,
@@ -18,6 +18,7 @@ from .schemas import (
     BookAppointmentRequest, BookAppointmentResponse,
     ProviderSummary, ProvidersResponse,
     ProviderSearchResponse,
+    SchedulingChannel,
 )
 from .services.triage import detect_red_flags
 from .services.intent import map_to_intent
@@ -36,6 +37,20 @@ app.add_middleware(
 )
 
 adapter = DemoAdapter()
+
+
+def compute_scheduling_channel(provider: Provider) -> SchedulingChannel:
+    """
+    Half of primary care providers should support MyChart open scheduling.
+    Deterministically assign based on provider ID so responses stay stable.
+    All other specialties default to direct scheduling.
+    """
+
+    if provider.provider_type == ProviderType.primary_care:
+        score = sum(ord(char) for char in provider.id) % 10
+        return "open_scheduling" if score < 5 else "direct_scheduling"
+
+    return "direct_scheduling"
 
 
 @app.on_event("startup")
@@ -162,7 +177,6 @@ def summarize_providers(
     if not providers:
         return []
 
-    providers = sorted(providers, key=lambda p: p.name)
     locs = {l.id: l for l in session.exec(select(Location)).all()}
     booked_rows = session.exec(
         select(Appointment).where(
@@ -207,8 +221,16 @@ def summarize_providers(
                 location_state=loc.state,
                 next_available_start=next_slot.start if next_slot else None,
                 next_available_mode=next_slot.mode if next_slot else None,
+                scheduling_channel=compute_scheduling_channel(p),
             )
         )
+
+    summaries.sort(
+        key=lambda s: (
+            s.next_available_start or datetime.max,
+            s.name,
+        )
+    )
 
     return summaries
 
@@ -229,11 +251,10 @@ def provider_directory(
         query = query.where(Provider.provider_type == provider_type)
 
     providers = session.exec(query).all()
-    providers = providers[:limit]
 
     summaries = summarize_providers(providers, session, mode, start, days)
 
-    return ProvidersResponse(providers=summaries)
+    return ProvidersResponse(providers=summaries[:limit])
 
 
 @app.get("/api/provider-search", response_model=ProviderSearchResponse)

@@ -31,6 +31,8 @@ type ProviderType =
   | "cardiology"
   | "neurology";
 
+type SchedulingChannel = "open_scheduling" | "direct_scheduling";
+
 type ProviderSummary = {
   provider_id: string;
   name: string;
@@ -41,6 +43,7 @@ type ProviderSummary = {
   location_state: string;
   next_available_start?: string | null;
   next_available_mode?: "in_person" | "virtual" | null;
+  scheduling_channel: SchedulingChannel;
 };
 
 type ProvidersResponse = { providers: ProviderSummary[] };
@@ -189,6 +192,34 @@ function buildSlots(provider: ProviderSummary): AppointmentSlot[] {
   });
 }
 
+const DEFAULT_PATIENT_PROFILE = {
+  firstName: "Alex",
+  lastName: "Taylor",
+  phone: "(312) 555-0199",
+  email: "alex.taylor@example.com",
+};
+
+function sortProvidersByAvailability(providers: ProviderSummary[]) {
+  return [...providers].sort((a, b) => {
+    const aTime = a.next_available_start
+      ? new Date(a.next_available_start).getTime()
+      : Number.POSITIVE_INFINITY;
+    const bTime = b.next_available_start
+      ? new Date(b.next_available_start).getTime()
+      : Number.POSITIVE_INFINITY;
+
+    if (aTime === bTime) {
+      return a.name.localeCompare(b.name);
+    }
+
+    return aTime - bTime;
+  });
+}
+
+function isOpenScheduling(provider: ProviderSummary) {
+  return provider.scheduling_channel === "open_scheduling";
+}
+
 function detectUrgency(text: string): "urgent" | "routine" | null {
   const normalized = text.toLowerCase();
   if (
@@ -311,6 +342,16 @@ export default function Page() {
     provider: ProviderSummary;
     slot: AppointmentSlot;
   } | null>(null);
+  const [visitModeChoice, setVisitModeChoice] = useState<
+    "in_person" | "virtual"
+  >("in_person");
+  const [appointmentType, setAppointmentType] = useState<string>(
+    "Primary care visit"
+  );
+  const [schedulingMode, setSchedulingMode] = useState<"guest" | "login">(
+    "guest"
+  );
+  const [patientProfile, setPatientProfile] = useState(DEFAULT_PATIENT_PROFILE);
 
   const [symptomFlowActive, setSymptomFlowActive] = useState(false);
   const [symptomStep, setSymptomStep] = useState(0);
@@ -496,6 +537,11 @@ export default function Page() {
     setProviderDiscoveryContext(null);
     setSearchSuggestions(null);
     setLastSuggestionQuery("");
+    setSelectedAppointment(null);
+    setVisitModeChoice("in_person");
+    setAppointmentType("Primary care visit");
+    setSchedulingMode("guest");
+    setPatientProfile(DEFAULT_PATIENT_PROFILE);
     setMessages((msgs) => msgs.filter((m) => m.kind !== "symptom_checker"));
   }
 
@@ -632,7 +678,7 @@ export default function Page() {
           `/api/providers?provider_type=${providerType}&limit=4&mode=${mode}`
         );
 
-        setProviderMatches(resp.providers);
+        setProviderMatches(sortProvidersByAvailability(resp.providers));
         const specialtyLabel = formatSpecialty(providerType).toLowerCase();
         const intro =
           intent === "insurance_filter"
@@ -675,8 +721,9 @@ export default function Page() {
           `/api/provider-search?q=${encodeURIComponent(query)}&limit=4&mode=${mode}`
         );
 
-        const matches =
-          resp.providers.length > 0 ? resp.providers : resp.suggestions;
+        const matches = sortProvidersByAvailability(
+          resp.providers.length > 0 ? resp.providers : resp.suggestions
+        );
 
         if (matches.length === 0) {
           setMessages((m) => [
@@ -730,6 +777,9 @@ export default function Page() {
 
   function handleSlotSelect(provider: ProviderSummary, slot: AppointmentSlot) {
     setSelectedAppointment({ provider, slot });
+    setVisitModeChoice(slot.mode);
+    setAppointmentType(`${formatSpecialty(provider.provider_type)} visit`);
+    setSchedulingMode(isOpenScheduling(provider) ? "guest" : "login");
 
     setMessages((m) => {
       const hasOverview = m.some((msg) => msg.kind === "appointment_overview");
@@ -755,19 +805,29 @@ export default function Page() {
     if (!selectedAppointment) return;
 
     const { provider, slot } = selectedAppointment;
+    const schedulingPath = isOpenScheduling(provider)
+      ? "MyChart open scheduling"
+      : "direct scheduling";
+    const continuation =
+      schedulingMode === "login"
+        ? "We'll take you to sign in to finish this direct scheduling request."
+        : "I'll pre-fill your details to finish scheduling as a guest.";
+    const visitLabel =
+      visitModeChoice === "virtual" ? "virtual visit" : "in-person visit";
 
     setMessages((m) => [
       ...m,
       {
         role: "assistant",
-        text: `Your ${slot.mode === "virtual" ? "virtual" : "in-person"} visit with ${
-          provider.name
-        } is set for ${slot.label}. I’ll share confirmation details shortly.`,
+        text: `Your ${visitLabel} with ${provider.name} is set for ${slot.label} via ${schedulingPath}. ${continuation}`,
         kind: "success",
       },
     ]);
 
     setSelectedAppointment(null);
+    setSchedulingMode("guest");
+    setVisitModeChoice("in_person");
+    setAppointmentType("Primary care visit");
   }
 
   async function answerSymptomQuestion(option: string) {
@@ -1152,6 +1212,14 @@ export default function Page() {
                       <div className="grid gap-3 md:grid-cols-2">
                         {providerMatches.slice(0, 4).map((p) => {
                           const slots = buildSlots(p);
+                          const openScheduling = isOpenScheduling(p);
+                          const schedulingLabel = openScheduling
+                            ? "MyChart open scheduling"
+                            : "Direct scheduling";
+                          const availabilityLabel =
+                            slots.length > 0
+                              ? `Availability: ${slots[0].label}`
+                              : "Availability: Checking";
                           return (
                             <div
                               key={p.provider_id}
@@ -1167,6 +1235,20 @@ export default function Page() {
                                     {formatSpecialty(p.provider_type)} • {p.location_city}, {p.location_state}
                                   </div>
                                   <div className="text-[11px] uppercase tracking-wide text-[#f58220]">{p.location_name}</div>
+                                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] font-semibold">
+                                    <span
+                                      className={`rounded-full px-2 py-1 ring-1 ${
+                                        openScheduling
+                                          ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                          : "bg-slate-100 text-slate-700 ring-slate-200"
+                                      }`}
+                                    >
+                                      {schedulingLabel}
+                                    </span>
+                                    <span className="rounded-full bg-white px-2 py-1 text-slate-700 ring-1 ring-[#f58220]/25">
+                                      {availabilityLabel}
+                                    </span>
+                                  </div>
                                 </div>
                                 <div className="text-right text-xs text-slate-600">
                                   {p.next_available_start ? (
@@ -1233,6 +1315,13 @@ export default function Page() {
                 if (m.kind === "appointment_overview") {
                   if (!selectedAppointment) return null;
 
+                  const provider = selectedAppointment.provider;
+                  const slot = selectedAppointment.slot;
+                  const openScheduling = isOpenScheduling(provider);
+                  const schedulingBadge = openScheduling
+                    ? "MyChart open scheduling"
+                    : "Direct scheduling required";
+
                   return (
                     <div
                       key={`appointment-${i}`}
@@ -1241,41 +1330,188 @@ export default function Page() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
-                            Appointment overview
+                            Scheduling skill
                           </div>
                           <div className="text-sm text-slate-600">
-                            Confirm the time you picked and we’ll book the visit.
+                            I saved the provider, time, and appointment type you chose. Finish in as few steps as possible.
                           </div>
                         </div>
                         <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/25">
-                          Pending
+                          Ready
                         </span>
                       </div>
 
-                      <div className="space-y-1 rounded-2xl bg-gradient-to-r from-white to-[#f58220]/10 p-3 ring-1 ring-[#f58220]/15">
-                        <div className="text-sm font-semibold text-slate-900">{selectedAppointment.provider.name}</div>
-                        <div className="text-xs text-slate-600">
-                          {formatSpecialty(selectedAppointment.provider.provider_type)} • {selectedAppointment.provider.location_city}, {" "}
-                          {selectedAppointment.provider.location_state}
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-3">
+                          <div className="space-y-2 rounded-2xl bg-gradient-to-r from-white to-[#f58220]/10 p-3 ring-1 ring-[#f58220]/15">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold text-slate-900">{provider.name}</div>
+                                <div className="text-xs text-slate-600">
+                                  {formatSpecialty(provider.provider_type)} • {provider.location_city}, {" "}
+                                  {provider.location_state}
+                                </div>
+                                <div className="text-xs text-slate-600">Location: {provider.location_name}</div>
+                              </div>
+                              <span
+                                className={`rounded-full px-2 py-1 text-[11px] font-semibold ring-1 ${
+                                  openScheduling
+                                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                    : "bg-slate-100 text-slate-700 ring-slate-200"
+                                }`}
+                              >
+                                {schedulingBadge}
+                              </span>
+                            </div>
+                            <div className="text-sm font-semibold text-[#f58220]">
+                              {slot.label} · {visitModeChoice === "virtual" ? "Virtual visit" : "In-person visit"}
+                            </div>
+                            <div className="text-xs text-slate-600">
+                              Appointment type: {appointmentType}. I’ll carry this, the provider, and the time slot into the scheduler for you.
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl bg-white/90 p-3 ring-1 ring-[#f58220]/15">
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">Visit format</div>
+                            <div className="text-sm text-slate-700">
+                              Virtual or in-person? I preselected based on the slot you tapped.
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${
+                                  visitModeChoice === "in_person"
+                                    ? "bg-[#f58220] text-white ring-[#f58220]"
+                                    : "bg-white text-[#f58220] ring-[#f58220]/30 hover:ring-[#f58220]/60"
+                                }`}
+                                onClick={() => setVisitModeChoice("in_person")}
+                              >
+                                In-person
+                              </button>
+                              <button
+                                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 transition ${
+                                  visitModeChoice === "virtual"
+                                    ? "bg-[#f58220] text-white ring-[#f58220]"
+                                    : "bg-white text-[#f58220] ring-[#f58220]/30 hover:ring-[#f58220]/60"
+                                }`}
+                                onClick={() => setVisitModeChoice("virtual")}
+                              >
+                                Virtual
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-600">
-                          Location: {selectedAppointment.provider.location_name}
-                        </div>
-                        <div className="text-sm font-semibold text-[#f58220]">
-                          {selectedAppointment.slot.label} · {" "}
-                          {selectedAppointment.slot.mode === "virtual" ? "Virtual visit" : "In-person visit"}
+
+                        <div className="space-y-3">
+                          <div className="rounded-xl bg-white/90 p-3 ring-1 ring-[#f58220]/20">
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">How to continue</div>
+                            <div className="text-sm text-slate-700">
+                              {openScheduling
+                                ? "You can finish as a guest with MyChart open scheduling or sign in if you’re a current patient."
+                                : "This clinic uses direct scheduling—sign in if you’re a current patient, or continue as a guest and I’ll pre-fill the form."}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                className={`rounded-full px-3 py-2 text-xs font-semibold ring-1 transition ${
+                                  schedulingMode === "login"
+                                    ? "bg-[#f58220] text-white ring-[#f58220]"
+                                    : "bg-white text-[#f58220] ring-[#f58220]/30 hover:ring-[#f58220]/60"
+                                }`}
+                                onClick={() => setSchedulingMode("login")}
+                              >
+                                Sign in to continue
+                              </button>
+                              <button
+                                className={`rounded-full px-3 py-2 text-xs font-semibold ring-1 transition ${
+                                  schedulingMode === "guest"
+                                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                    : "bg-white text-[#f58220] ring-[#f58220]/30 hover:ring-[#f58220]/60"
+                                }`}
+                                onClick={() => setSchedulingMode("guest")}
+                              >
+                                Continue as guest
+                              </button>
+                            </div>
+
+                            {schedulingMode === "guest" && (
+                              <div className="mt-3 space-y-2 rounded-lg bg-[#f58220]/5 p-3 ring-1 ring-[#f58220]/15">
+                                <div className="text-xs font-semibold text-slate-700">I’ll pre-fill these details</div>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <label className="text-[11px] text-slate-600">
+                                    First name
+                                    <input
+                                      className="mt-1 w-full rounded-lg border border-[#f58220]/25 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-1"
+                                      value={patientProfile.firstName}
+                                      onChange={(e) =>
+                                        setPatientProfile((prev) => ({
+                                          ...prev,
+                                          firstName: e.target.value,
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                  <label className="text-[11px] text-slate-600">
+                                    Last name
+                                    <input
+                                      className="mt-1 w-full rounded-lg border border-[#f58220]/25 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-1"
+                                      value={patientProfile.lastName}
+                                      onChange={(e) =>
+                                        setPatientProfile((prev) => ({
+                                          ...prev,
+                                          lastName: e.target.value,
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                  <label className="text-[11px] text-slate-600">
+                                    Phone number
+                                    <input
+                                      className="mt-1 w-full rounded-lg border border-[#f58220]/25 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-1"
+                                      value={patientProfile.phone}
+                                      onChange={(e) =>
+                                        setPatientProfile((prev) => ({
+                                          ...prev,
+                                          phone: e.target.value,
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                  <label className="text-[11px] text-slate-600">
+                                    Email (optional)
+                                    <input
+                                      className="mt-1 w-full rounded-lg border border-[#f58220]/25 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-1"
+                                      value={patientProfile.email}
+                                      onChange={(e) =>
+                                        setPatientProfile((prev) => ({
+                                          ...prev,
+                                          email: e.target.value,
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                </div>
+                                <div className="text-[11px] text-slate-500">
+                                  I’ll reuse these to keep the form short—edit anything that needs updating.
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="text-xs text-slate-600">
-                          We’ll send confirmation and check-in details after you confirm.
+                        <div className="space-y-1 text-xs text-slate-600">
+                          <div>
+                            I’ll remember this provider, the {appointmentType.toLowerCase()}, and the {slot.label} time slot while you continue.
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            This tool is for scheduling only and is not for emergencies. If this is an emergency, call 911 or go to the nearest ER.
+                          </div>
                         </div>
                         <button
                           onClick={confirmSelectedAppointment}
                           className="inline-flex items-center justify-center rounded-full bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#d86d0f] focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-2 focus:ring-offset-white"
                         >
-                          Confirm appointment
+                          Complete scheduling
                         </button>
                       </div>
                     </div>
