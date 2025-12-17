@@ -70,6 +70,7 @@ type Msg = {
     | "appointment_overview"
     | "insurance_filter"
     | "success";
+  options?: string[];
 };
 
 const API_BASE =
@@ -775,20 +776,35 @@ export default function Page() {
 
       const schedulingPrompt = wantsNextAvailable
         ? `I'll pull the earliest available appointments ${inferredLocation}.`
-        : `Want me to show the soonest available appointments ${inferredLocation}?`;
+        : `I recommend showing the soonest available appointments ${inferredLocation}.`;
 
-      const followUps: string[] = [];
+      type FollowUp = { text: string; options: string[] };
+      const followUps: FollowUp[] = [];
       if (!modePreference) {
-        followUps.push("Do you prefer in-person or virtual?");
+        followUps.push({
+          text: "Choose a visit format so I can tailor the schedule.",
+          options: ["In-person", "Virtual"],
+        });
       }
       if (!urgency) {
-        followUps.push("Is this urgent (today/soon) or routine?");
+        followUps.push({
+          text: "Pick how soon you’d like care.",
+          options: ["Today or soon", "Routine"],
+        });
       }
       if (!patientGroup) {
-        followUps.push("Is this for an adult or child?");
+        followUps.push({
+          text: "Select who the visit is for.",
+          options: ["Adult", "Child"],
+        });
       }
       if (intentResp.follow_up_questions?.length) {
-        followUps.push(...intentResp.follow_up_questions);
+        followUps.push(
+          ...intentResp.follow_up_questions.map((q) => ({
+            text: q,
+            options: ["Share details", "Skip for now"],
+          }))
+        );
       }
 
       setMessages((m) => [
@@ -800,9 +816,10 @@ export default function Page() {
       ]);
 
       if (followUps.length > 0) {
+        const nextFollowUp = followUps[0];
         setMessages((m) => [
           ...m,
-          ...followUps.map((q) => ({ role: "assistant", text: q })),
+          { role: "assistant", text: nextFollowUp.text, options: nextFollowUp.options },
         ]);
       }
     } catch (e: unknown) {
@@ -1161,7 +1178,23 @@ export default function Page() {
                             : "bg-white text-slate-800 ring-1 ring-[#f58220]/20"
                         }`}
                       >
-                        {m.text}
+                        <div className="space-y-2">
+                          <div>{m.text}</div>
+                          {m.options && m.options.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {m.options.map((option) => (
+                                <button
+                                  key={option}
+                                  className="rounded-full border border-[#f58220]/25 bg-[#f58220]/5 px-3 py-1 text-xs font-semibold text-[#f58220] transition hover:-translate-y-0.5 hover:border-[#f58220]/50 hover:bg-[#f58220]/10 disabled:opacity-60"
+                                  onClick={() => handleSend(option)}
+                                  disabled={loading}
+                                >
+                                  {option}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
