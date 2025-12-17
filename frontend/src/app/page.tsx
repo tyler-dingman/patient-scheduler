@@ -731,7 +731,7 @@ export default function Page() {
     setSelectedAppointment(null);
   }
 
-  function answerSymptomQuestion(option: string) {
+  async function answerSymptomQuestion(option: string) {
     const current = symptomQuestions[symptomStep];
     if (!current) return;
 
@@ -747,6 +747,20 @@ export default function Page() {
           text: `Thanks for the details. I’ll check urgent care times ${
             userLocation ? `near ${userLocation}` : "near you"
           }.`,
+        },
+      ]);
+
+      const locationLabel = userLocation ? `near ${userLocation}` : "near you";
+      setLoading(true);
+
+      await fetchProvidersByType("urgent_care", undefined, locationLabel, "next_available");
+
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text:
+            "Prefer to talk to someone? You can also call our 24/7 nurse line at 1-855-242-1813 for guidance.",
         },
       ]);
     } else {
