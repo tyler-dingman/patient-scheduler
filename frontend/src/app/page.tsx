@@ -234,6 +234,104 @@ export default function Page() {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
 
+  const stateAbbreviations: Record<string, string> = {
+    Alabama: "AL",
+    Alaska: "AK",
+    Arizona: "AZ",
+    Arkansas: "AR",
+    California: "CA",
+    Colorado: "CO",
+    Connecticut: "CT",
+    Delaware: "DE",
+    Florida: "FL",
+    Georgia: "GA",
+    Hawaii: "HI",
+    Idaho: "ID",
+    Illinois: "IL",
+    Indiana: "IN",
+    Iowa: "IA",
+    Kansas: "KS",
+    Kentucky: "KY",
+    Louisiana: "LA",
+    Maine: "ME",
+    Maryland: "MD",
+    Massachusetts: "MA",
+    Michigan: "MI",
+    Minnesota: "MN",
+    Mississippi: "MS",
+    Missouri: "MO",
+    Montana: "MT",
+    Nebraska: "NE",
+    Nevada: "NV",
+    "New Hampshire": "NH",
+    "New Jersey": "NJ",
+    "New Mexico": "NM",
+    "New York": "NY",
+    "North Carolina": "NC",
+    "North Dakota": "ND",
+    Ohio: "OH",
+    Oklahoma: "OK",
+    Oregon: "OR",
+    Pennsylvania: "PA",
+    "Rhode Island": "RI",
+    "South Carolina": "SC",
+    "South Dakota": "SD",
+    Tennessee: "TN",
+    Texas: "TX",
+    Utah: "UT",
+    Vermont: "VT",
+    Virginia: "VA",
+    Washington: "WA",
+    "West Virginia": "WV",
+    Wisconsin: "WI",
+    Wyoming: "WY",
+    "District of Columbia": "DC",
+  };
+
+  function formatState(state?: string) {
+    if (!state) return null;
+    return stateAbbreviations[state] ?? state;
+  }
+
+  async function reverseGeocode(lat: number, lon: number) {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
+        {
+          headers: {
+            "Accept-Language": "en",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to reverse geocode location");
+      }
+
+      const data = await response.json();
+      const address = data.address ?? {};
+
+      const city =
+        address.city ||
+        address.town ||
+        address.village ||
+        address.hamlet ||
+        address.municipality ||
+        address.county;
+
+      const state = formatState(address.state);
+
+      if (city && state) return `${city}, ${state}`;
+      if (city) return city;
+      if (state) return state;
+
+      return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+    } catch (error) {
+      console.error("Reverse geocoding failed", error);
+      return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+    }
+  }
+
   function getErrorMessage(error: unknown) {
     if (error instanceof Error) return error.message;
     try {
@@ -339,9 +437,11 @@ export default function Page() {
     setGeoStatus("locating");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const coords = `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`;
-        setUserLocation(coords);
-        setGeoStatus("granted");
+        const { latitude, longitude } = pos.coords;
+        reverseGeocode(latitude, longitude).then((label) => {
+          setUserLocation(label);
+          setGeoStatus("granted");
+        });
       },
       () => setGeoStatus("denied")
     );
