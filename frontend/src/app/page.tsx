@@ -181,8 +181,10 @@ async function fetchWithTimeout<T>(
     return res.json();
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
+      logError(`Request to ${path} timed out`, error);
       throw new Error("Request timed out. Please try again.");
     }
+    logError(`Request to ${path} failed`, error);
     throw error instanceof Error
       ? error
       : new Error(getErrorMessage(error ?? "Unknown error"));
@@ -505,6 +507,13 @@ export default function Page() {
     }
   }
 
+  const logError = useCallback((context: string, error: unknown) => {
+    console.error(
+      `[Patient Scheduler] ${context}: ${getErrorMessage(error)}`,
+      error
+    );
+  }, []);
+
   async function postJSON<T>(path: string, body: unknown): Promise<T> {
     return fetchWithTimeout<T>(path, {
       method: "POST",
@@ -537,8 +546,9 @@ export default function Page() {
         if (query !== input.trim()) return;
         setSearchSuggestions(resp);
         setLastSuggestionQuery(query);
-      } catch {
+      } catch (error) {
         if (!cancelled) {
+          logError("Fetching provider search suggestions failed", error);
           setSearchSuggestions(null);
         }
       }
@@ -548,7 +558,7 @@ export default function Page() {
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [input, mode]);
+  }, [input, logError, mode]);
 
   const quickPrompts = [
     "Find a primary care provider near me",
@@ -782,6 +792,7 @@ export default function Page() {
           { role: "assistant", text: "", kind: "providers" },
         ]);
       } catch (e: unknown) {
+        logError("Fetching providers by type failed", e);
         setMessages((m) => [
           ...m,
           { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
@@ -791,7 +802,7 @@ export default function Page() {
         setProviderDiscoveryMode("idle");
       }
     },
-    [mode]
+    [logError, mode]
   );
 
   const fetchProvidersByName = useCallback(
@@ -844,6 +855,7 @@ export default function Page() {
         ]);
         return true;
       } catch (e: unknown) {
+        logError("Fetching providers by name failed", e);
         setMessages((m) => [
           ...m,
           { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
@@ -854,7 +866,7 @@ export default function Page() {
         setProviderDiscoveryMode("idle");
       }
     },
-    [mode]
+    [logError, mode]
   );
 
   function handleSlotSelect(provider: ProviderSummary, slot: AppointmentSlot) {
@@ -1172,6 +1184,7 @@ export default function Page() {
         ]);
       }
     } catch (e: unknown) {
+      logError("Handling symptom intent failed", e);
       setMessages((m) => [
         ...m,
         { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
