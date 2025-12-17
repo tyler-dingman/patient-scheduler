@@ -31,20 +31,16 @@ type ProviderType =
   | "cardiology"
   | "neurology";
 
-type SchedulingAccess = "open_scheduling" | "direct_scheduling";
-
 type ProviderSummary = {
   provider_id: string;
   name: string;
   provider_type: ProviderType;
   accepts_virtual: boolean;
-  scheduling_access: SchedulingAccess;
   location_name: string;
   location_city: string;
   location_state: string;
   next_available_start?: string | null;
   next_available_mode?: "in_person" | "virtual" | null;
-  availability_label?: string | null;
 };
 
 type ProvidersResponse = { providers: ProviderSummary[] };
@@ -57,15 +53,6 @@ type AppointmentSlot = {
   iso: string;
   label: string;
   mode: "in_person" | "virtual";
-};
-
-type GuestProfile = {
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
-  email: string;
-  dob: string;
-  notes: string;
 };
 
 type ProviderDiscoveryContext = {
@@ -133,15 +120,6 @@ function formatState(state?: string) {
   return stateAbbreviations[state] ?? state;
 }
 
-const defaultGuestProfile: GuestProfile = {
-  firstName: "Jordan",
-  lastName: "Rivera",
-  phoneNumber: "(555) 201-3388",
-  email: "jordan.rivera@example.com",
-  dob: "1990-04-12",
-  notes: "Add insurance cards at check-in.",
-};
-
 type Msg = {
   role: Role;
   text: string;
@@ -157,41 +135,6 @@ type Msg = {
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
-
-const REQUEST_TIMEOUT_MS = 25000;
-
-async function fetchWithTimeout<T>(
-  path: string,
-  options: RequestInit = {},
-  timeoutMs: number = REQUEST_TIMEOUT_MS
-): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      throw new Error(await res.text());
-    }
-
-    return res.json();
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      logError(`Request to ${path} timed out`, error);
-      throw new Error("Request timed out. Please try again.");
-    }
-    logError(`Request to ${path} failed`, error);
-    throw error instanceof Error
-      ? error
-      : new Error(getErrorMessage(error ?? "Unknown error"));
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 const phoneRegex = /\+?1?[-.\s()]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 
@@ -245,22 +188,6 @@ function getProviderDisplayName(provider: ProviderSummary) {
   }
 
   return provider.name;
-}
-
-function getSchedulingCopy(access: SchedulingAccess) {
-  if (access === "open_scheduling") {
-    return {
-      label: "Open scheduling",
-      explainer: "Book instantly without signing in (MyChart guest).",
-      tone: "ease",
-    } as const;
-  }
-
-  return {
-    label: "Direct scheduling",
-    explainer: "Login needed for current patients to finish booking.",
-    tone: "secure",
-  } as const;
 }
 
 function getUrgentCareWaitTime(provider: ProviderSummary) {
@@ -441,11 +368,6 @@ export default function Page() {
     provider: ProviderSummary;
     slot: AppointmentSlot;
   } | null>(null);
-  const [guestProfile, setGuestProfile] = useState<GuestProfile>(defaultGuestProfile);
-  const [bookingPath, setBookingPath] = useState<"guest" | "login">("guest");
-  const [preferredVisitMode, setPreferredVisitMode] = useState<
-    "in_person" | "virtual"
-  >("in_person");
 
   const [symptomFlowActive, setSymptomFlowActive] = useState(false);
   const [symptomStep, setSymptomStep] = useState(0);
@@ -507,23 +429,20 @@ export default function Page() {
     }
   }
 
-  const logError = useCallback((context: string, error: unknown) => {
-    console.error(
-      `[Patient Scheduler] ${context}: ${getErrorMessage(error)}`,
-      error
-    );
-  }, []);
-
   async function postJSON<T>(path: string, body: unknown): Promise<T> {
-    return fetchWithTimeout<T>(path, {
+    const res = await fetch(`${API_BASE}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 
   async function getJSON<T>(path: string): Promise<T> {
-    return fetchWithTimeout<T>(path);
+    const res = await fetch(`${API_BASE}${path}`);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 
   useEffect(() => {
@@ -546,9 +465,8 @@ export default function Page() {
         if (query !== input.trim()) return;
         setSearchSuggestions(resp);
         setLastSuggestionQuery(query);
-      } catch (error) {
+      } catch {
         if (!cancelled) {
-          logError("Fetching provider search suggestions failed", error);
           setSearchSuggestions(null);
         }
       }
@@ -558,7 +476,7 @@ export default function Page() {
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [input, logError, mode]);
+  }, [input, mode]);
 
   const quickPrompts = [
     "Find a primary care provider near me",
@@ -792,7 +710,6 @@ export default function Page() {
           { role: "assistant", text: "", kind: "providers" },
         ]);
       } catch (e: unknown) {
-        logError("Fetching providers by type failed", e);
         setMessages((m) => [
           ...m,
           { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
@@ -802,7 +719,7 @@ export default function Page() {
         setProviderDiscoveryMode("idle");
       }
     },
-    [logError, mode]
+    [mode]
   );
 
   const fetchProvidersByName = useCallback(
@@ -855,7 +772,6 @@ export default function Page() {
         ]);
         return true;
       } catch (e: unknown) {
-        logError("Fetching providers by name failed", e);
         setMessages((m) => [
           ...m,
           { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
@@ -866,27 +782,17 @@ export default function Page() {
         setProviderDiscoveryMode("idle");
       }
     },
-    [logError, mode]
+    [mode]
   );
 
   function handleSlotSelect(provider: ProviderSummary, slot: AppointmentSlot) {
     setSelectedAppointment({ provider, slot });
-    setPreferredVisitMode(slot.mode);
-    setBookingPath(provider.scheduling_access === "open_scheduling" ? "guest" : "login");
-    setGuestProfile((prev) => (selectedAppointment ? prev : defaultGuestProfile));
 
     setMessages((m) => {
       const hasOverview = m.some((msg) => msg.kind === "appointment_overview");
       if (hasOverview) return m;
       return [...m, { role: "assistant", text: "", kind: "appointment_overview" }];
     });
-  }
-
-  function updateVisitMode(nextMode: "in_person" | "virtual") {
-    setPreferredVisitMode(nextMode);
-    setSelectedAppointment((current) =>
-      current ? { ...current, slot: { ...current.slot, mode: nextMode } } : current
-    );
   }
 
   function handleInsuranceSelect(planName: string) {
@@ -907,29 +813,14 @@ export default function Page() {
 
     const { provider, slot } = selectedAppointment;
     const displayName = getProviderDisplayName(provider);
-    const schedulingCopy = getSchedulingCopy(provider.scheduling_access);
-    const visitModeLabel =
-      preferredVisitMode === "virtual" ? "virtual" : "in-person";
-
-    const bookingPathLabel =
-      bookingPath === "guest" && provider.scheduling_access === "open_scheduling"
-        ? "open scheduling as a guest"
-        : bookingPath === "login"
-        ? "direct scheduling with a quick sign-in"
-        : "direct scheduling with the details you shared";
-
-    const patientName =
-      bookingPath === "guest"
-        ? `${guestProfile.firstName} ${guestProfile.lastName}`.trim()
-        : "your patient account";
 
     setMessages((m) => [
       ...m,
       {
         role: "assistant",
-        text: `Great — I’ll book a ${visitModeLabel} visit with ${displayName} for ${
-          slot.label
-        } using ${bookingPathLabel}. I’ll keep the saved details for ${patientName} (${schedulingCopy.label.toLowerCase()}).`,
+        text: `Your ${slot.mode === "virtual" ? "virtual" : "in-person"} visit with ${
+          displayName
+        } is set for ${slot.label}. I’ll share confirmation details shortly.`,
         kind: "success",
       },
     ]);
@@ -1184,7 +1075,6 @@ export default function Page() {
         ]);
       }
     } catch (e: unknown) {
-      logError("Handling symptom intent failed", e);
       setMessages((m) => [
         ...m,
         { role: "assistant", text: `Error: ${getErrorMessage(e)}` },
@@ -1322,7 +1212,6 @@ export default function Page() {
                           const slots = buildSlots(p);
                           const displayName = getProviderDisplayName(p);
                           const waitTimeLabel = getUrgentCareWaitTime(p);
-                          const schedulingCopy = getSchedulingCopy(p.scheduling_access);
                           return (
                             <div
                               key={p.provider_id}
@@ -1338,22 +1227,6 @@ export default function Page() {
                                     {formatSpecialty(p.provider_type)} • {p.location_city}, {p.location_state}
                                   </div>
                                   <div className="text-[11px] uppercase tracking-wide text-[#f58220]">{p.location_name}</div>
-                                  <div className="mt-1 flex flex-wrap gap-1 text-[11px] font-semibold">
-                                    <span
-                                      className={`rounded-full px-2 py-1 ${
-                                        schedulingCopy.tone === "ease"
-                                          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
-                                          : "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
-                                      }`}
-                                    >
-                                      {schedulingCopy.label}
-                                    </span>
-                                    {p.availability_label && (
-                                      <span className="rounded-full bg-white px-2 py-1 text-[#f58220] ring-1 ring-[#f58220]/30">
-                                        {p.availability_label}
-                                      </span>
-                                    )}
-                                  </div>
                                 </div>
                                 <div className="text-right text-xs text-slate-600 space-y-1">
                                   {waitTimeLabel && (
@@ -1421,239 +1294,59 @@ export default function Page() {
                 }
 
                 if (m.kind === "appointment_overview") {
-
                   if (!selectedAppointment) return null;
 
                   const overviewDisplayName = getProviderDisplayName(selectedAppointment.provider);
-
-                  const schedulingCopy = getSchedulingCopy(
-                    selectedAppointment.provider.scheduling_access
-                  );
-                  const slotModeLabel =
-                    selectedAppointment.slot.mode === "virtual"
-                      ? "Virtual visit"
-                      : "In-person visit";
-                  const slotAvailabilityLabel =
-                    selectedAppointment.provider.availability_label ??
-                    `Next: ${selectedAppointment.slot.label}`;
 
                   return (
                     <div
                       key={`appointment-${i}`}
                       className="space-y-3 rounded-3xl border border-[#f58220]/20 bg-white/95 p-4 shadow-lg shadow-[#f58220]/10 ring-1 ring-[#f58220]/15"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
                             Appointment overview
                           </div>
                           <div className="text-sm text-slate-600">
-                            Confirm the time you picked and we’ll book the visit with the fastest path available.
+                            Confirm the time you picked and we’ll book the visit.
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/25">
-                            {schedulingCopy.label}
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-                            {slotAvailabilityLabel}
-                          </span>
-                        </div>
+                        <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-xs font-semibold text-[#f58220] ring-1 ring-[#f58220]/25">
+                          Pending
+                        </span>
                       </div>
 
-                      <div className="grid gap-3 lg:grid-cols-2">
-                        <div className="space-y-2 rounded-2xl bg-gradient-to-r from-white to-[#f58220]/10 p-3 ring-1 ring-[#f58220]/15">
-                          <div className="flex items-center justify-between gap-2">
-                            <div>
-                              <div className="text-sm font-semibold text-slate-900">{overviewDisplayName}</div>
-                              <div className="text-xs text-slate-600">
-                                {formatSpecialty(selectedAppointment.provider.provider_type)} • {selectedAppointment.provider.location_city},{" "}
-                                {selectedAppointment.provider.location_state}
-                              </div>
-                              <div className="text-xs text-slate-600">
-                                Location: {selectedAppointment.provider.location_name}
-                              </div>
-                            </div>
-                            <span
-                              className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                                schedulingCopy.tone === "ease"
-                                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
-                                  : "bg-[#f58220]/10 text-[#f58220] ring-1 ring-[#f58220]/25"
-                              }`}
-                            >
-                              {schedulingCopy.label}
-                            </span>
-                          </div>
-
-                          <div className="rounded-xl bg-white/80 p-3 shadow-inner ring-1 ring-[#f58220]/10">
-                            <div className="text-[11px] font-semibold uppercase tracking-wide text-[#f58220]">
-                              Saved details
-                            </div>
-                            <div className="text-sm font-semibold text-slate-900">{selectedAppointment.slot.label}</div>
-                            <div className="text-xs text-slate-600">{slotModeLabel}</div>
-                            <div className="text-xs text-slate-600">
-                              We’ll remember the provider, time, appointment type, and location while you schedule.
-                            </div>
-                          </div>
+                      <div className="space-y-1 rounded-2xl bg-gradient-to-r from-white to-[#f58220]/10 p-3 ring-1 ring-[#f58220]/15">
+                        <div className="text-sm font-semibold text-slate-900">{overviewDisplayName}</div>
+                        <div className="text-xs text-slate-600">
+                          {formatSpecialty(selectedAppointment.provider.provider_type)} • {selectedAppointment.provider.location_city}, {" "}
+                          {selectedAppointment.provider.location_state}
                         </div>
-
-                        <div className="space-y-3 rounded-2xl border border-[#f58220]/20 bg-white p-3 shadow-inner">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">
-                                Quick scheduling
-                              </div>
-                              <div className="text-sm text-slate-700">Virtual or in-person?</div>
-                            </div>
-                            <span className="text-[11px] text-slate-500">Assumes the fastest path</span>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            {["in_person", "virtual"].map((modeChoice) => {
-                              const isVirtual = modeChoice === "virtual";
-                              const disabled = isVirtual && !selectedAppointment.provider.accepts_virtual;
-                              const isActive = preferredVisitMode === modeChoice;
-                              return (
-                                <button
-                                  key={modeChoice}
-                                  type="button"
-                                  disabled={disabled}
-                                  onClick={() => updateVisitMode(modeChoice as "in_person" | "virtual")}
-                                  className={`rounded-full px-3 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white ${
-                                    isActive
-                                      ? "bg-[#f58220] text-white shadow"
-                                      : "bg-white text-[#f58220] ring-1 ring-[#f58220]/30 hover:bg-[#f58220]/10"
-                                  } ${disabled ? "opacity-50" : ""}`}
-                                >
-                                  {isVirtual ? "Virtual" : "In person"}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <button
-                              type="button"
-                              onClick={() => setBookingPath("guest")}
-                              className={`flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition ring-1 ${
-                                bookingPath === "guest"
-                                  ? "bg-[#f58220] text-white ring-[#f58220] shadow-md"
-                                  : "bg-white text-slate-800 ring-[#f58220]/20 hover:bg-[#f58220]/10"
-                              }`}
-                            >
-                              <span>Continue as guest</span>
-                              <span className="text-xs font-medium">Fastest</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setBookingPath("login")}
-                              className={`flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition ring-1 ${
-                                bookingPath === "login"
-                                  ? "bg-slate-900 text-white ring-slate-700 shadow-md"
-                                  : "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
-                              }`}
-                            >
-                              <span>Login to continue</span>
-                              <span className="text-xs font-medium">For current patients</span>
-                            </button>
-                          </div>
-
-                          {bookingPath === "guest" ? (
-                            <div className="space-y-2 rounded-xl bg-[#f58220]/10 p-3 ring-1 ring-[#f58220]/20">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                  We pre-filled this for you
-                                </div>
-                                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
-                                  Guest
-                                </span>
-                              </div>
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                <input
-                                  className="w-full rounded-lg border border-[#f58220]/30 bg-white px-3 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-[#f58220]"
-                                  value={guestProfile.firstName}
-                                  onChange={(e) =>
-                                    setGuestProfile((prev) => ({ ...prev, firstName: e.target.value }))
-                                  }
-                                  placeholder="First name"
-                                />
-                                <input
-                                  className="w-full rounded-lg border border-[#f58220]/30 bg-white px-3 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-[#f58220]"
-                                  value={guestProfile.lastName}
-                                  onChange={(e) =>
-                                    setGuestProfile((prev) => ({ ...prev, lastName: e.target.value }))
-                                  }
-                                  placeholder="Last name"
-                                />
-                                <input
-                                  className="w-full rounded-lg border border-[#f58220]/30 bg-white px-3 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-[#f58220]"
-                                  value={guestProfile.phoneNumber}
-                                  onChange={(e) =>
-                                    setGuestProfile((prev) => ({ ...prev, phoneNumber: e.target.value }))
-                                  }
-                                  placeholder="Phone number"
-                                />
-                                <input
-                                  className="w-full rounded-lg border border-[#f58220]/30 bg-white px-3 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-[#f58220]"
-                                  value={guestProfile.email}
-                                  onChange={(e) =>
-                                    setGuestProfile((prev) => ({ ...prev, email: e.target.value }))
-                                  }
-                                  placeholder="Email (optional)"
-                                />
-                                <input
-                                  className="w-full rounded-lg border border-[#f58220]/30 bg-white px-3 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-[#f58220]"
-                                  value={guestProfile.dob}
-                                  onChange={(e) =>
-                                    setGuestProfile((prev) => ({ ...prev, dob: e.target.value }))
-                                  }
-                                  placeholder="Date of birth"
-                                />
-                                <input
-                                  className="w-full rounded-lg border border-[#f58220]/30 bg-white px-3 py-2 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-[#f58220]"
-                                  value={guestProfile.notes}
-                                  onChange={(e) =>
-                                    setGuestProfile((prev) => ({ ...prev, notes: e.target.value }))
-                                  }
-                                  placeholder="Notes (optional)"
-                                />
-                              </div>
-                              <div className="text-[11px] text-slate-600">
-                                We’ll reuse these details so you don’t have to re-type anything.
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                                Current patients
-                              </div>
-                              <div className="text-sm text-slate-700">
-                                We’ll take you to login next. Your provider, time, and visit type are saved so checkout is quick.
-                              </div>
-                            </div>
-                          )}
+                        <div className="text-xs text-slate-600">
+                          Location: {selectedAppointment.provider.location_name}
+                        </div>
+                        <div className="text-sm font-semibold text-[#f58220]">
+                          {selectedAppointment.slot.label} · {" "}
+                          {selectedAppointment.slot.mode === "virtual" ? "Virtual visit" : "In-person visit"}
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="text-[11px] text-slate-500">
-                          This scheduling helper is not for emergencies. If this is an emergency, call 911.
+                        <div className="text-xs text-slate-600">
+                          We’ll send confirmation and check-in details after you confirm.
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-[#f58220]/25">
-                            {schedulingCopy.label} · {slotAvailabilityLabel}
-                          </span>
-                          <button
-                            onClick={confirmSelectedAppointment}
-                            className="inline-flex items-center justify-center rounded-full bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#d86d0f] focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-2 focus:ring-offset-white"
-                          >
-                            Confirm & continue
-                          </button>
-                        </div>
+                        <button
+                          onClick={confirmSelectedAppointment}
+                          className="inline-flex items-center justify-center rounded-full bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#d86d0f] focus:outline-none focus:ring-2 focus:ring-[#f58220] focus:ring-offset-2 focus:ring-offset-white"
+                        >
+                          Confirm appointment
+                        </button>
                       </div>
                     </div>
                   );
                 }
+
                 if (m.kind === "insurance_filter") {
                   if (!insuranceFlowActive) return null;
 

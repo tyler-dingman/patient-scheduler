@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime, date
 from enum import Enum
 from typing import Optional
-
-from sqlmodel import Field, Index, SQLModel
+from sqlmodel import SQLModel, Field, Index
 
 
 class ProviderType(str, Enum):
@@ -19,11 +18,6 @@ class ProviderType(str, Enum):
 class VisitMode(str, Enum):
     in_person = "in_person"
     virtual = "virtual"
-
-
-class SchedulingAccess(str, Enum):
-    open_scheduling = "open_scheduling"
-    direct_scheduling = "direct_scheduling"
 
 
 class Location(SQLModel, table=True):
@@ -42,7 +36,6 @@ class Provider(SQLModel, table=True):
     provider_type: ProviderType
     location_id: str = Field(foreign_key="location.id")
     accepts_virtual: bool = True
-    scheduling_access: SchedulingAccess = SchedulingAccess.direct_scheduling
 
 
 class Appointment(SQLModel, table=True):
