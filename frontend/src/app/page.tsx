@@ -188,6 +188,36 @@ function detectPatientGroup(text: string): "pediatric" | "adult" | null {
   return null;
 }
 
+function requiresInPersonCare(
+  text: string,
+  recommendedProviderType?: ProviderType | null
+): boolean {
+  const normalized = text.toLowerCase();
+  const injuryKeywords = [
+    "broken",
+    "fracture",
+    "sprain",
+    "injury",
+    "bone",
+    "cast",
+    "dislocation",
+    "stitches",
+    "bleeding",
+    "burn",
+    "wound",
+  ];
+
+  if (injuryKeywords.some((keyword) => normalized.includes(keyword))) {
+    return true;
+  }
+
+  if (recommendedProviderType === "orthopedics") {
+    return true;
+  }
+
+  return false;
+}
+
 export default function Page() {
   const [sessionId] = useState(
     () => "sess_" + Math.random().toString(16).slice(2)
@@ -833,6 +863,11 @@ export default function Page() {
         mode_preference: mode,
       });
 
+      const needsInPersonCare = requiresInPersonCare(
+        text,
+        intentResp.recommended_provider_type as ProviderType | null
+      );
+
       if (intentResp.escalate) {
         setMessages((m) => [
           ...m,
@@ -851,6 +886,9 @@ export default function Page() {
         ? formatSpecialty(intentResp.recommended_provider_type as ProviderType)
         : "care";
 
+      const confirmedModePreference =
+        modePreference ?? (needsInPersonCare ? "in_person" : null);
+
       const affirmations = [
         `I can help with ${reasonLabel}.`,
         intentResp.recommended_provider_type
@@ -859,12 +897,15 @@ export default function Page() {
       ].filter(Boolean);
 
       const primarySignals = [
+        needsInPersonCare
+          ? "This needs an in-person visit for proper evaluation."
+          : null,
         patientGroup === "pediatric"
           ? "I'll look for pediatric-friendly options."
           : null,
-        modePreference === "virtual"
+        confirmedModePreference === "virtual"
           ? "I'll focus on virtual visits."
-          : modePreference === "in_person"
+          : confirmedModePreference === "in_person"
           ? "I'll focus on in-person visits."
           : null,
         urgency === "urgent"
@@ -874,13 +915,15 @@ export default function Page() {
           : null,
       ].filter(Boolean);
 
-      const schedulingPrompt = wantsNextAvailable
+      const schedulingPrompt = needsInPersonCare
+        ? `I'll prioritize in-person appointments ${inferredLocation}.`
+        : wantsNextAvailable
         ? `I'll pull the earliest available appointments ${inferredLocation}.`
         : `I recommend showing the soonest available appointments ${inferredLocation}.`;
 
       type FollowUp = { text: string; options: string[] };
       const followUps: FollowUp[] = [];
-      if (!modePreference) {
+      if (!confirmedModePreference && !needsInPersonCare) {
         followUps.push({
           text: "Choose a visit format so I can tailor the schedule.",
           options: ["In-person", "Virtual"],
