@@ -61,6 +61,65 @@ type ProviderDiscoveryContext = {
   title?: string;
 };
 
+const stateAbbreviations: Record<string, string> = {
+  Alabama: "AL",
+  Alaska: "AK",
+  Arizona: "AZ",
+  Arkansas: "AR",
+  California: "CA",
+  Colorado: "CO",
+  Connecticut: "CT",
+  Delaware: "DE",
+  Florida: "FL",
+  Georgia: "GA",
+  Hawaii: "HI",
+  Idaho: "ID",
+  Illinois: "IL",
+  Indiana: "IN",
+  Iowa: "IA",
+  Kansas: "KS",
+  Kentucky: "KY",
+  Louisiana: "LA",
+  Maine: "ME",
+  Maryland: "MD",
+  Massachusetts: "MA",
+  Michigan: "MI",
+  Minnesota: "MN",
+  Mississippi: "MS",
+  Missouri: "MO",
+  Montana: "MT",
+  Nebraska: "NE",
+  Nevada: "NV",
+  "New Hampshire": "NH",
+  "New Jersey": "NJ",
+  "New Mexico": "NM",
+  "New York": "NY",
+  "North Carolina": "NC",
+  "North Dakota": "ND",
+  Ohio: "OH",
+  Oklahoma: "OK",
+  Oregon: "OR",
+  Pennsylvania: "PA",
+  "Rhode Island": "RI",
+  "South Carolina": "SC",
+  "South Dakota": "SD",
+  Tennessee: "TN",
+  Texas: "TX",
+  Utah: "UT",
+  Vermont: "VT",
+  Virginia: "VA",
+  Washington: "WA",
+  "West Virginia": "WV",
+  Wisconsin: "WI",
+  Wyoming: "WY",
+  "District of Columbia": "DC",
+};
+
+function formatState(state?: string) {
+  if (!state) return null;
+  return stateAbbreviations[state] ?? state;
+}
+
 type Msg = {
   role: Role;
   text: string;
@@ -69,6 +128,7 @@ type Msg = {
     | "providers"
     | "appointment_overview"
     | "insurance_filter"
+    | "symptom_checker"
     | "success";
   options?: string[];
 };
@@ -234,66 +294,7 @@ export default function Page() {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
 
-  const stateAbbreviations: Record<string, string> = {
-    Alabama: "AL",
-    Alaska: "AK",
-    Arizona: "AZ",
-    Arkansas: "AR",
-    California: "CA",
-    Colorado: "CO",
-    Connecticut: "CT",
-    Delaware: "DE",
-    Florida: "FL",
-    Georgia: "GA",
-    Hawaii: "HI",
-    Idaho: "ID",
-    Illinois: "IL",
-    Indiana: "IN",
-    Iowa: "IA",
-    Kansas: "KS",
-    Kentucky: "KY",
-    Louisiana: "LA",
-    Maine: "ME",
-    Maryland: "MD",
-    Massachusetts: "MA",
-    Michigan: "MI",
-    Minnesota: "MN",
-    Mississippi: "MS",
-    Missouri: "MO",
-    Montana: "MT",
-    Nebraska: "NE",
-    Nevada: "NV",
-    "New Hampshire": "NH",
-    "New Jersey": "NJ",
-    "New Mexico": "NM",
-    "New York": "NY",
-    "North Carolina": "NC",
-    "North Dakota": "ND",
-    Ohio: "OH",
-    Oklahoma: "OK",
-    Oregon: "OR",
-    Pennsylvania: "PA",
-    "Rhode Island": "RI",
-    "South Carolina": "SC",
-    "South Dakota": "SD",
-    Tennessee: "TN",
-    Texas: "TX",
-    Utah: "UT",
-    Vermont: "VT",
-    Virginia: "VA",
-    Washington: "WA",
-    "West Virginia": "WV",
-    Wisconsin: "WI",
-    Wyoming: "WY",
-    "District of Columbia": "DC",
-  };
-
-  function formatState(state?: string) {
-    if (!state) return null;
-    return stateAbbreviations[state] ?? state;
-  }
-
-  async function reverseGeocode(lat: number, lon: number) {
+  const reverseGeocode = useCallback(async (lat: number, lon: number) => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
@@ -330,7 +331,7 @@ export default function Page() {
       console.error("Reverse geocoding failed", error);
       return `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
     }
-  }
+  }, []);
 
   function getErrorMessage(error: unknown) {
     if (error instanceof Error) return error.message;
@@ -445,7 +446,7 @@ export default function Page() {
       },
       () => setGeoStatus("denied")
     );
-  }, [symptomFlowActive, geoStatus]);
+  }, [symptomFlowActive, geoStatus, reverseGeocode]);
 
   function resetFlows() {
     setInsuranceFlowActive(false);
@@ -459,6 +460,7 @@ export default function Page() {
     setProviderDiscoveryContext(null);
     setSearchSuggestions(null);
     setLastSuggestionQuery("");
+    setMessages((msgs) => msgs.filter((m) => m.kind !== "symptom_checker"));
   }
 
   function isInsuranceQuery(text: string) {
@@ -826,13 +828,18 @@ export default function Page() {
     if (isSymptomQuery(text)) {
       setLoading(false);
       setSymptomFlowActive(true);
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text: "Let’s run a quick symptom check to match an urgent care slot and geolocate you automatically.",
-        },
-      ]);
+      setMessages((m) => {
+        const withoutSymptomSkill = m.filter((msg) => msg.kind !== "symptom_checker");
+
+        return [
+          ...withoutSymptomSkill,
+          {
+            role: "assistant",
+            text: "Let’s run a quick symptom check to match an urgent care slot and geolocate you automatically.",
+          },
+          { role: "assistant", text: "", kind: "symptom_checker" },
+        ];
+      });
       return;
     }
 
@@ -1269,6 +1276,74 @@ export default function Page() {
                   );
                 }
 
+                if (m.kind === "symptom_checker") {
+                  if (!symptomFlowActive) return null;
+
+                  return (
+                    <div
+                      key={`symptom-${i}`}
+                      className="flex justify-start"
+                    >
+                      <div className="w-full space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm ring-1 ring-[#f58220]/15">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">
+                              Symptom checker
+                            </div>
+                            <div className="text-sm text-slate-600">
+                              I’ll ask a few questions, then find urgent care near you.
+                            </div>
+                          </div>
+                          <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-[11px] font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
+                            {geoStatusLabel}
+                          </span>
+                        </div>
+
+                        {!symptomComplete && (
+                          <div className="space-y-3 rounded-xl bg-[#f58220]/10 p-3">
+                            <div className="text-sm font-semibold text-slate-900">
+                              {symptomQuestions[symptomStep]?.question}
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {symptomQuestions[symptomStep]?.options.map((option) => (
+                                <button
+                                  key={option}
+                                  className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-800 ring-1 ring-[#f58220]/25 transition hover:-translate-y-0.5 hover:shadow"
+                                  onClick={() => answerSymptomQuestion(option)}
+                                  disabled={loading}
+                                >
+                                  {option}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Question {symptomStep + 1} of {symptomQuestions.length}
+                            </div>
+                          </div>
+                        )}
+
+                        {symptomComplete && (
+                          <div className="space-y-3 rounded-xl bg-[#f58220]/10 p-3">
+                            <div className="text-sm font-semibold text-slate-900">
+                              Great, here’s what I gathered:
+                            </div>
+                            <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                              {symptomQuestions.map((q) => (
+                                <li key={q.id}>
+                                  {q.question}: <span className="font-semibold">{symptomResponses[q.id]}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="text-sm text-[#f58220]">
+                              I’ll remember these details as I look for urgent care options {userLocation ? `near ${userLocation}` : "near you"}.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={`message-${i}`}
@@ -1319,69 +1394,8 @@ export default function Page() {
             </div>
           </div>
 
-          
+
         </div>
-
-        {symptomFlowActive && (
-          <div className="flex flex-col gap-4 bg-white/95 px-5 py-5 lg:overflow-y-auto lg:px-6 lg:py-7">
-            <div className="space-y-3 rounded-2xl border border-[#f58220]/25 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-[#f58220]">
-                    Symptom checker
-                  </div>
-                  <div className="text-sm text-slate-600">
-                    I’ll ask a few questions, then find urgent care near you.
-                  </div>
-                </div>
-                <span className="rounded-full bg-[#f58220]/10 px-3 py-1 text-[11px] font-semibold text-[#f58220] ring-1 ring-[#f58220]/20">
-                  {geoStatusLabel}
-                </span>
-              </div>
-
-              {!symptomComplete && (
-                <div className="space-y-3 rounded-xl bg-[#f58220]/10 p-3">
-                  <div className="text-sm font-semibold text-slate-900">
-                    {symptomQuestions[symptomStep]?.question}
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {symptomQuestions[symptomStep]?.options.map((option) => (
-                      <button
-                        key={option}
-                        className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-800 ring-1 ring-[#f58220]/25 transition hover:-translate-y-0.5 hover:shadow"
-                        onClick={() => answerSymptomQuestion(option)}
-                        disabled={loading}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Question {symptomStep + 1} of {symptomQuestions.length}
-                  </div>
-                </div>
-              )}
-
-              {symptomComplete && (
-                <div className="space-y-3 rounded-xl bg-[#f58220]/10 p-3">
-                  <div className="text-sm font-semibold text-slate-900">
-                    Great, here’s what I gathered:
-                  </div>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-                    {symptomQuestions.map((q) => (
-                      <li key={q.id}>
-                        {q.question}: <span className="font-semibold">{symptomResponses[q.id]}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="text-sm text-[#f58220]">
-                    I’ll remember these details as I look for urgent care options {userLocation ? `near ${userLocation}` : "near you"}.
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         </div>
 
