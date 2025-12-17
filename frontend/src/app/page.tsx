@@ -447,19 +447,19 @@ export default function Page() {
 
   const symptomQuestions = [
     {
-      id: "duration",
-      question: "How long has the sore throat lasted?",
-      options: ["Less than a day", "1-3 days", "More than 3 days"],
+      id: "patient_group",
+      question: "I can line up urgent care times nearby. Who needs care?",
+      options: ["Adult", "Child", "Adult 65+"] as const,
     },
     {
-      id: "fever",
-      question: "Is there a fever present?",
-      options: ["No fever", "Mild fever", "High fever"],
+      id: "duration",
+      question: "How long has the sore throat been bothering you?",
+      options: ["Today", "1-3 days", "4+ days"],
     },
     {
       id: "breathing",
-      question: "Any trouble breathing or swallowing?",
-      options: ["No", "Mild discomfort", "Yes, significant"],
+      question: "Any trouble swallowing or breathing right now?",
+      options: ["No", "A little", "Yes, getting worse"],
     },
   ];
 
@@ -895,7 +895,7 @@ export default function Page() {
           ...withoutSymptomSkill,
           {
             role: "assistant",
-            text: "Let’s run a quick symptom check to match an urgent care slot and geolocate you automatically.",
+            text: "I’ll pull nearby urgent care times to get you seen—this isn’t a diagnosis, just routing care.",
           },
           { role: "assistant", text: "", kind: "symptom_checker" },
         ];
