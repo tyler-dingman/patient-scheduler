@@ -8,7 +8,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
-from .db import create_db_and_tables, get_session, engine
+from .db import create_db_and_tables, get_session, engine, verify_connection
 from .models import Appointment, Location, Provider, SchedulingAccess
 from .schemas import (
     SearchIntentRequest, SearchIntentResponse,
@@ -40,6 +40,7 @@ adapter = DemoAdapter()
 
 @app.on_event("startup")
 def on_startup():
+    verify_connection()
     create_db_and_tables()
     with Session(engine) as s:
         if not s.exec(select(Location)).first():
