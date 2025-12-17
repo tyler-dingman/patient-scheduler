@@ -158,6 +158,39 @@ type Msg = {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
+const REQUEST_TIMEOUT_MS = 12000;
+
+async function fetchWithTimeout<T>(
+  path: string,
+  options: RequestInit = {},
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(await res.text());
+    }
+
+    return res.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
+    throw error instanceof Error
+      ? error
+      : new Error(getErrorMessage(error ?? "Unknown error"));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const phoneRegex = /\+?1?[-.\s()]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 
 function formatMessageText(text: string) {
@@ -473,19 +506,15 @@ export default function Page() {
   }
 
   async function postJSON<T>(path: string, body: unknown): Promise<T> {
-    const res = await fetch(`${API_BASE}${path}`, {
+    return fetchWithTimeout<T>(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
   }
 
   async function getJSON<T>(path: string): Promise<T> {
-    const res = await fetch(`${API_BASE}${path}`);
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return fetchWithTimeout<T>(path);
   }
 
   useEffect(() => {
