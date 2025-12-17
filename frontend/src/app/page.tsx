@@ -810,6 +810,12 @@ export default function Page() {
     if (!raw.trim()) return;
 
     const text = raw.trim();
+    const insuranceFollowUp =
+      insuranceFlowActive &&
+      selectedInsurance &&
+      insuranceCareSuggestions.some(
+        (suggestion) => suggestion.toLowerCase() === text.toLowerCase()
+      );
     if (!customText) {
       setInput("");
     }
@@ -817,6 +823,23 @@ export default function Page() {
 
     setMessages((m) => [...m, { role: "user", text }]);
     setLoading(true);
+
+    if (insuranceFollowUp) {
+      const specialtyMap: Record<string, ProviderType> = {
+        "primary care": "primary_care",
+        "urgent care": "urgent_care",
+        pediatrics: "primary_care",
+      };
+
+      const providerType = specialtyMap[text.toLowerCase()] ?? "primary_care";
+      await fetchProvidersByType(
+        providerType,
+        selectedInsurance,
+        userLocation ? `near ${userLocation}` : "near you",
+        "insurance_filter"
+      );
+      return;
+    }
 
     if (isInsuranceQuery(text)) {
       setLoading(false);
