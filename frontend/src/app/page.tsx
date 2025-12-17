@@ -136,6 +136,42 @@ type Msg = {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
+const phoneRegex = /\+?1?[-.\s()]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+
+function formatMessageText(text: string) {
+  const parts: (string | JSX.Element)[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(phoneRegex)) {
+    const start = match.index ?? 0;
+    const phoneNumber = match[0];
+
+    if (start > lastIndex) {
+      parts.push(text.slice(lastIndex, start));
+    }
+
+    const sanitizedNumber = phoneNumber.replace(/[^+\d]/g, "");
+
+    parts.push(
+      <a
+        key={`phone-${start}`}
+        href={`tel:${sanitizedNumber}`}
+        className="font-semibold text-[#f58220] underline decoration-[#f58220]/50 decoration-2 underline-offset-2"
+      >
+        {phoneNumber}
+      </a>
+    );
+
+    lastIndex = start + phoneNumber.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
+
 function providerInitials(name: string) {
   return name
     .split(" ")
@@ -1456,7 +1492,7 @@ export default function Page() {
                         <span className="mt-0.5 text-lg">✅</span>
                         <div className="space-y-1">
                           <div className="text-sm font-semibold text-emerald-900">Appointment set</div>
-                          <div>{m.text}</div>
+                          <div>{formatMessageText(m.text)}</div>
                         </div>
                       </div>
                     ) : (
@@ -1470,7 +1506,7 @@ export default function Page() {
                         }`}
                       >
                         <div className="space-y-2">
-                          <div>{m.text}</div>
+                          <div>{formatMessageText(m.text)}</div>
                           {m.options && m.options.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                               {m.options.map((option) => (
